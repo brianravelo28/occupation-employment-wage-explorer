@@ -1,8 +1,8 @@
-pandas>=2.0
-numpy>=1.24
-requests>=2.31
-openpyxl>=3.1
-plotly>=5.18
-dash>=2.16
-python-dotenv>=1.0
-gunicorn>=22.0
+pandas==3.0.6
+numpy==2.4.6
+requests==2.34.2
+openpyxl==3.1.5
+plotly==7.1.0
+dash==4.4.1
+python-dotenv==1.2.4
+gunicorn==26.2.0

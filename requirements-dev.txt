@@ -1,6 +1,6 @@
-# Extras for local development (notebooks) -- not installed on Render.
-# Install with: pip install -r requirements.txt -r requirements-dev.txt
+# Extras for local development (notebooks, tests) -- not installed on Render.
+# Install with: pip install -r requirements-dev.txt
 -r requirements.txt
-jupyter>=1.0
-matplotlib>=3.7
-pytest>=8.0
+jupyter==1.1.1
+matplotlib==3.11.2
+pytest==9.1.1

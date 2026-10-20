@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Dash](https://img.shields.io/badge/dashboard-Plotly%20Dash-blue.svg)](https://dash.plotly.com/)
-[![tests](https://github.com/brianravelo28/labor-market-displacement-forecaster/actions/workflows/tests.yml/badge.svg)](https://github.com/brianravelo28/labor-market-displacement-forecaster/actions/workflows/tests.yml)
+[![tests](https://github.com/brianravelo28/occupation-employment-wage-explorer/actions/workflows/tests.yml/badge.svg)](https://github.com/brianravelo28/occupation-employment-wage-explorer/actions/workflows/tests.yml)
 
 An interactive dashboard and data pipeline for occupation-level employment and wages in the US and Florida, built on real data from the Bureau of Labor Statistics (BLS), not synthetic data. It describes what the data show and makes no forecasts.
 
@@ -33,8 +33,8 @@ Which jobs are shrinking, and which are quietly losing purchasing power even whi
 ## Quick Start
 
 ```bash
-git clone https://github.com/brianravelo28/labor-market-displacement-forecaster.git
-cd labor-market-displacement-forecaster
+git clone https://github.com/brianravelo28/occupation-employment-wage-explorer.git
+cd occupation-employment-wage-explorer
 pip install -r requirements.txt   # Python 3.11 or newer
 python app/app.py
 # -> http://localhost:8051
@@ -125,7 +125,7 @@ No environment variables or secrets are required — the dashboard reads only th
 ## Project Structure
 
 ```
-labor-market-displacement-forecaster/
+occupation-employment-wage-explorer/
 ├── README.md              # this file
 ├── requirements.txt        # runtime deps (what Render installs)
 ├── requirements-dev.txt    # + jupyter/matplotlib for notebooks

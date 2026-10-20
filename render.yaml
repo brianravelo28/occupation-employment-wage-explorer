@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: labor-market-displacement-forecaster
+    name: occupation-employment-wage-explorer
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt

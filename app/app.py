@@ -1,5 +1,5 @@
 """
-Occupation Employment & Real Wage Tracker -- Dash app.
+Occupation Employment & Wage Explorer -- Dash app.
 
 Four tabs: Occupation Search, Regional Comparison (US vs FL), Industry &
 Sector Analysis, and 2020 Shock & Recovery. Everything runs on the processed
@@ -77,7 +77,7 @@ occ_options = (
 DEFAULT_OCC = df.loc[df["employment_level"].idxmax(), "occ_code"]
 
 app = dash.Dash(__name__)
-app.title = "Occupation Employment & Real Wage Tracker"
+app.title = "Occupation Employment & Wage Explorer"
 server = app.server  # exposes the underlying Flask app for gunicorn (see Procfile)
 
 tab1_content = html.Div(
@@ -260,9 +260,9 @@ tab4_content = html.Div(
 app.layout = html.Div(
     style={"fontFamily": "Segoe UI, Arial, sans-serif", "maxWidth": "1100px", "margin": "0 auto", "padding": "24px"},
     children=[
-        html.H1("Occupation Employment & Real Wage Tracker", style={"marginBottom": "4px"}),
+        html.H1("Occupation Employment & Wage Explorer", style={"marginBottom": "4px"}),
         html.P(
-            f"BLS OEWS data, {FIRST_YEAR}-{LATEST_YEAR} (annual), with CPI-U inflation adjustment and "
+            f"BLS OEWS data, {FIRST_YEAR}-{LATEST_YEAR} (annual), with inflation-adjusted (real) wages from CPI-U and "
             "JOLTS job-market tightness.",
             style={"color": "#666", "marginTop": 0},
         ),

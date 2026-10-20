@@ -71,6 +71,15 @@ if __name__ == "__main__":
     featured.to_csv(out_path, index=False)
     print(f"Saved {len(featured):,} rows to {out_path}")
 
+    # Blanks are kept (never filled or dropped); say how many there are and why.
+    n = len(featured)
+    print("\nBlank values (kept as blanks, never zeros):")
+    print(f"  employment_level (suppressed by BLS):               {featured['employment_level'].isna().sum():>6,} of {n:,}")
+    print(f"  wage_annual_mean / wage_annual_mean_real:           {featured['wage_annual_mean'].isna().sum():>6,}  (suppressed by BLS)")
+    print(f"  employment_change_yoy_pct (no prior-year value):    {featured['employment_change_yoy_pct'].isna().sum():>6,}  (first year, a missing year, or a blank input)")
+    print(f"  real_wage_growth_yoy_pct:                           {featured['real_wage_growth_yoy_pct'].isna().sum():>6,}  (same reasons, for wages)")
+    print(f"  jolts_exposure_*_rate (no employment in a JOLTS sector): {featured['jolts_exposure_openings_rate'].isna().sum():>3,}")
+
     latest = featured[featured["year"] == featured["year"].max()]
     print(f"\n{latest['year'].iloc[0]} snapshot ({len(latest)} occupation-region rows):")
     print("  with YoY growth computed:", latest["employment_change_yoy_pct"].notna().sum())

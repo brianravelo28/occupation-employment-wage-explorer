@@ -86,6 +86,8 @@ if __name__ == "__main__":
     print("\nresponse (percentage points of growth, 2020 excess over earlier trend):")
     print(result.groupby("region")["response_pct"].describe().round(1).to_string())
     pairs = _pairs(features)
+    print(f"\n{len(features) - len(pairs):,} of {len(features):,} occupation-year rows have no year-over-year change "
+          f"(first year, a missing year, or a blank employment value) and are left out of the response calculation.")
     for region, p in pairs.groupby("region"):
         us = p[p["year"] == SHOCK_YEAR]
         print(f"{region}: total employment change in the {SHOCK_YEAR} release "

@@ -40,3 +40,7 @@ if __name__ == "__main__":
     out_path = DATA_PROCESSED / "oews_industry_features.csv"
     featured.to_csv(out_path, index=False)
     print(f"Saved {len(featured):,} rows to {out_path}")
+    print("\nBlank values (kept as blanks, never zeros):")
+    print(f"  jolts_*_rate (agriculture, outside JOLTS' nonfarm scope): {featured['jolts_openings_rate'].isna().sum():>6,} of {len(featured):,}")
+    print(f"  employment_change_yoy_pct (no prior-year value):          {featured['employment_change_yoy_pct'].isna().sum():>6,}")
+    print(f"  real_wage_growth_yoy_pct:                                 {featured['real_wage_growth_yoy_pct'].isna().sum():>6,}")

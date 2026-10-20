@@ -9,7 +9,7 @@
 
 An interactive dashboard and data pipeline for occupation-level employment and wages in the US and Florida, built on real data from the Bureau of Labor Statistics (BLS), not synthetic data. It describes what the data show and makes no forecasts.
 
-**Live dashboard: [labor-market-displacement-forecaster.onrender.com](https://labor-market-displacement-forecaster.onrender.com/)** — hosted on Render's free tier, which spins the app down when idle, so the first load after a quiet period can take up to a minute.
+**Live dashboard: [occupation-employment-wage-explorer.onrender.com](https://occupation-employment-wage-explorer.onrender.com/)** — hosted on Render's free tier, which spins the app down when idle, so the first load after a quiet period can take up to a minute.
 
 ## Overview
 

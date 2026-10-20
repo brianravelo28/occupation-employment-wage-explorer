@@ -70,12 +70,13 @@ The CPI and JOLTS pulls go through BLS's timeseries API, which returns at most 1
 
 ### Run the tests
 
-This project includes 70+ tests that check the pipeline is correct and repeatable: that the data is clean and consistent, that the calculations produce the right numbers, and that the dashboard shows what the data say. If a change breaks any of that, the tests catch it.
+This project includes 100+ tests that check the pipeline is correct and repeatable: that the data is clean and consistent, that the calculations produce the right numbers, and that the dashboard shows what the data say. If a change breaks any of that, the tests catch it.
 
 A few examples of what they check:
 - **Data integrity:** keys are unique, every year is present, and real wages equal nominal wages in the base year (a sanity check that the inflation adjustment works)
 - **Calculations:** year-matched lags (a change is computed against the actual prior year, never a gap), growth features, the CPI and JOLTS merges, and the 2020 shock-and-recovery table
 - **Repeatability:** the committed 2020 table matches what the current data produce when rebuilt
+- **Documentation:** every figure quoted in the README and methodology (the Florida wage gaps, the real-wage shares, the 2020 responses and so on) is recomputed from the committed data by `src/doc_figures.py` and must appear in the docs exactly as computed
 - **Data fetching:** quirks of the BLS API, such as a request that reports success but returns no data
 - **Dashboard:** every callback (the function behind each chart and filter) returns the expected output
 

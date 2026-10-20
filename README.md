@@ -3,7 +3,7 @@
 ![Occupation Employment & Wage Explorer dashboard](docs/screenshot.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Dash](https://img.shields.io/badge/dashboard-Plotly%20Dash-blue.svg)](https://dash.plotly.com/)
 [![tests](https://github.com/brianravelo28/occupation-employment-wage-explorer/actions/workflows/tests.yml/badge.svg)](https://github.com/brianravelo28/occupation-employment-wage-explorer/actions/workflows/tests.yml)
 
@@ -37,7 +37,7 @@ Use it to look up any occupation's employment and real-wage history, compare Flo
 ```bash
 git clone https://github.com/brianravelo28/occupation-employment-wage-explorer.git
 cd occupation-employment-wage-explorer
-pip install -r requirements.txt   # Python 3.11 or newer
+pip install -r requirements.txt   # Python 3.12 or newer
 python app/app.py
 # -> http://localhost:8051
 ```
@@ -111,7 +111,7 @@ The dashboard has four tabs:
 The repo is Render-ready as-is:
 
 1. On [render.com](https://render.com), **New > Blueprint**, point it at this repo — `render.yaml` configures the build (`pip install -r requirements.txt`) and start command.
-2. Or create a **New > Web Service** manually (Python 3.11+, free plan is fine) with build command `pip install -r requirements.txt` and start command:
+2. Or create a **New > Web Service** manually (Python 3.12+, free plan is fine) with build command `pip install -r requirements.txt` and start command:
 
    ```bash
    gunicorn app.app:server --bind 0.0.0.0:$PORT --worker-class gthread --workers 1 --threads 4 --timeout 120

@@ -15,6 +15,8 @@ An interactive dashboard and data pipeline for occupation-level employment and w
 
 Which jobs are shrinking, and which are quietly losing purchasing power even while nominal pay rises? This project pulls the BLS's Occupational Employment and Wage Statistics (OEWS) into an 11-year annual panel (about 800 occupations, national and statewide Florida), adjusts wages for inflation with the Consumer Price Index for All Urban Consumers (CPI-U), and adds job openings, quits and layoffs rates from the Job Openings and Labor Turnover Survey (JOLTS), which show how tight hiring is in each occupation's industries.
 
+Use it to look up any occupation's employment and real-wage history, compare Florida with the nation, see which jobs are growing or shrinking within each industry, and see how occupations fared in 2020. Every figure comes from BLS files committed in this repo and reproduced by its code and tests. Growth rates are directional, because OEWS is not designed for year-over-year comparison (see [Limitations](#limitations)).
+
 **Findings:**
 - 💵 **Pay fell behind inflation in 2021–22.** More than 80% of US occupations had a real (inflation-adjusted) wage decline in both years, against 7% in 2020 and 32% in 2023. Over 2015–2025 the median US occupation's real wage rose just 0.8% in total.
 - 📉 **The 2020 shock was very uneven.** Total US employment fell 5.3% in the 2020 release (Florida 4.2%). Against their own earlier trends, Waiters and Waitresses fell 25 points more, Retail Salespersons 14 and Registered Nurses 2. By 2025, the occupations present in every release were at 103% of their 2019 employment nationally and 110% in Florida. See [the methodology](docs/METHODOLOGY.md#2020-shock-and-recovery).
@@ -94,7 +96,7 @@ jupyter notebook notebooks/
 
 ## Dashboard
 
-4 tabs, each verified against real data (locally and in production):
+The dashboard has four tabs:
 
 | Tab | What it shows |
 |---|---|

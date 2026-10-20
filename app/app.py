@@ -20,16 +20,15 @@ DATA_PATH = PROCESSED_DIR / "oews_occupation_features.csv"
 INDUSTRY_DATA_PATH = PROCESSED_DIR / "oews_industry_features.csv"
 SHOCK_PATH = PROCESSED_DIR / "shock_2020_response.csv"
 
-# Below this (in either the current or the prior year), an occupation's
-# employment count within a single industry sector is small enough that YoY %
-# swings are dominated by OEWS sampling noise rather than a real trend -- see
-# the ranking note in update_sector_tab.
+# Ranked tables on the Industry & Sector tab leave out occupations with fewer
+# employees than this in either year compared: below it, year-over-year swings
+# in a single sector are dominated by survey sampling noise (see update_sector_tab).
 SECTOR_RANKING_MIN_EMPLOYMENT = 500
 
 # Interactive charts hide the mode bar and get a hint line instead, since
 # displayModeBar=False makes drag-to-zoom/double-click-reset/legend-click
 # otherwise undiscoverable. The legend sentence is only added for charts that
-# actually have a legend (none of the current ones do).
+# have a legend.
 CHART_HINT_BASE = "Drag to zoom into part of the chart; double-click the chart to reset the view."
 CHART_HINT_LEGEND_CLAUSE = " Click a legend entry to hide that series; double-click it to isolate it."
 NO_MODEBAR = {"displayModeBar": False}
@@ -428,18 +427,11 @@ def regional_bar(us_val, fl_val, title, yaxis_title, fmt="{:.1f}"):
 
 
 def regional_bar_with_iqr(us_frame, fl_frame, column, title, yaxis_title, by_worker=False):
-    # A median-only bar for this metric reads as broken when the FL median
-    # lands on exactly 0.0% (13 of 744 FL occupations have identical
-    # employment in consecutive releases) -- a single point estimate
-    # can't show that FL still has real dispersion. A first attempt used a
-    # box plot, but occupation-level YoY changes include a handful of small
-    # occupations with extreme OEWS-sampling-noise swings (down to -82%, up
-    # to +300%) -- full min/max whiskers stretched the axis so far that the
-    # actually-informative IQR collapsed into an unreadable sliver near zero.
-    # Error bars scoped to just the 25th-75th percentile sidestep that: the
-    # extreme tail never enters the range calculation at all, so the chart
-    # can't be dominated by it, while still visibly showing real spread
-    # around the median bar instead of a lonely flat number.
+    # Median bar with whiskers spanning the 25th-75th percentile (IQR). The
+    # whiskers show how widely occupations vary around a median that can sit
+    # near zero. They stop at the IQR rather than the full range because a few
+    # small occupations swing from about -82% to +300% from survey sampling
+    # noise, which would stretch the axis until the IQR was unreadable.
     us_med, us_q1, us_q3 = (region_quantile(us_frame, column, q, by_worker) for q in (0.5, 0.25, 0.75))
     fl_med, fl_q1, fl_q3 = (region_quantile(fl_frame, column, q, by_worker) for q in (0.5, 0.25, 0.75))
     fig = go.Figure(
@@ -612,20 +604,13 @@ if industry_df is not None:
             margin=dict(t=50),
         )
 
-        # Occupation x industry-sector cells get very sparse for uncommon
-        # combos (e.g. a handful of in-house corporate trainers at a
-        # manufacturer, reported as "Self-Enrichment Teachers" under NAICS
-        # Manufacturing). At n=130 a swing of a few employees reads as a
-        # 40%+ move and dominates the top-movers ranking with entries that
-        # look nonsensical for the sector, even though the underlying BLS
-        # data is genuine. The scatter above still shows every occupation
-        # (small ones are naturally de-emphasized by bubble size), but the
-        # ranked tables below apply a floor so they highlight real,
-        # statistically meaningful movements instead of sampling noise.
-        # The floor applies to BOTH years being compared: a floor on the
-        # current year alone lets a jump from a tiny base (120 -> 960
-        # employees, +700%) straight through. The prior-year count is
-        # recovered exactly from the YoY percentage.
+        # Occupation x sector cells can be very small, and a swing of a few
+        # employees then reads as a large percentage move. The scatter shows
+        # every occupation (small ones are de-emphasized by bubble size); the
+        # ranked tables apply SECTOR_RANKING_MIN_EMPLOYMENT to BOTH years being
+        # compared, since a floor on the current year alone lets a jump from a
+        # tiny base through (120 -> 960 employees reads as +700%). The prior-year
+        # count is recovered exactly from the YoY percentage.
         prior_employment = (sub["employment_level"] / (1 + sub["employment_change_yoy_pct"] / 100)).round()
         ranked = sub[
             (sub["employment_level"] >= SECTOR_RANKING_MIN_EMPLOYMENT)

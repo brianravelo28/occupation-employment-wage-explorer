@@ -48,4 +48,4 @@ def test_the_anchors_other_tools_link_to_still_exist():
 
 def test_the_slug_function_matches_github_for_a_tricky_heading():
     assert slug("Status & Limitations") == "status--limitations"
-    assert slug("`employment_forecast_model.txt`") == "employment_forecast_modeltxt"
+    assert slug("`shock_2020_response.csv`") == "shock_2020_responsecsv"

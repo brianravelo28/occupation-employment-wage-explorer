@@ -2,6 +2,8 @@
 
 All processed files live in `data/processed/` and are **committed to the repo** so the deployed dashboard can run without re-downloading from BLS (the raw `data/raw/` archives are the git-ignored part). Regenerate them via the scripts in `data/` and `src/` — pipeline order is in the [README](../README.md#rebuild-everything-from-raw-bls-data-optional).
 
+Abbreviations (BLS, OEWS, JOLTS, CPI-U, NAICS, SOC, YoY) are defined at the top of [METHODOLOGY.md](METHODOLOGY.md).
+
 Also tracked: `jolts_industry_panel.csv` and `cpi_monthly.csv` (BLS API pulls, below) and `shock_2020_response.csv` (each occupation's observed 2020 employment response, used by the 2020 tab; below).
 
 ## `oews_occupation_panel.csv`

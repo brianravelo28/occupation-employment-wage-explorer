@@ -3,32 +3,39 @@
 ![Occupation Employment & Real Wage Tracker dashboard](docs/screenshot.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Dash](https://img.shields.io/badge/dashboard-Plotly%20Dash-blue.svg)](https://dash.plotly.com/)
 [![tests](https://github.com/brianravelo28/labor-market-displacement-forecaster/actions/workflows/tests.yml/badge.svg)](https://github.com/brianravelo28/labor-market-displacement-forecaster/actions/workflows/tests.yml)
 
-A labor-market analytics pipeline and dashboard for occupation-level employment and wages, built on real BLS data (not synthetic), comparing the US with Florida as a whole. **Status: complete** — the four-tab dashboard is built and deployed; see [Status & Limitations](#status--limitations) for the data caveats.
+An interactive dashboard and data pipeline for occupation-level employment and wages in the US and Florida, built on real data from the Bureau of Labor Statistics (BLS), not synthetic data. It describes what the data show and makes no forecasts.
 
 **Live dashboard: [labor-market-displacement-forecaster.onrender.com](https://labor-market-displacement-forecaster.onrender.com/)** — hosted on Render's free tier, which spins the app down when idle, so the first load after a quiet period can take up to a minute.
 
 ## Overview
 
-Which jobs are shrinking, and which are quietly losing purchasing power even while nominal pay rises? This project pulls BLS Occupational Employment and Wage Statistics (OEWS) into an 11-year annual panel (~800 occupations, national + statewide Florida), adds CPI-U inflation adjustment and JOLTS job-market tightness, and ships an interactive dashboard for exploring the results. It describes what the data show; it makes no forecasts.
+Which jobs are shrinking, and which are quietly losing purchasing power even while nominal pay rises? This project pulls the BLS's Occupational Employment and Wage Statistics (OEWS) into an 11-year annual panel (about 800 occupations, national and statewide Florida), adjusts wages for inflation with the Consumer Price Index for All Urban Consumers (CPI-U), and adds job openings, quits and layoffs rates from the Job Openings and Labor Turnover Survey (JOLTS), which show how tight hiring is in each occupation's industries.
 
-**Results:**
-- 📊 **11-year OEWS panel**: 2015–2025, 789–831 occupations per year (17,587 occupation × region × year rows), national + statewide Florida
-- 💵 **Nominal raises mostly didn't keep up with inflation in 2021–22**: deflating each year's wages with May CPI-U, more than 80% of US occupations had a real wage decline in both 2021 and 2022 (85% in 2022), against 7% in 2020 and 32% in 2023. Across the whole 2015–2025 span the median US occupation's real wage rose just 0.8%, and 46% of occupations ended lower. (Retail Salespersons' real wage is essentially flat for a decade.) In 2025, 39% of US occupations and 45% of Florida occupations had a real wage decline.
-- 📉 **The 2020 shock was very uneven, and the recovery has been too**: total employment in the 2020 release fell 5.3% nationally (4.2% in Florida) against a pre-2020 trend of about +1.6% a year. Against their own earlier trends, Waiters and Waitresses fell 25 points more, Retail Salespersons 14, Registered Nurses 2. For the occupations present in every release, employment in 2025 is 103% of its 2019 level nationally and 110% in Florida. See [docs/METHODOLOGY.md](docs/METHODOLOGY.md#2020-shock-and-recovery).
-- 📈 **JOLTS tightness merged in**: JOLTS publishes job openings, quits and layoffs by industry only, so each occupation gets the rates of its industries weighted by where its employment sits (Florida occupations use the national industry rates, since BLS publishes Florida JOLTS for total nonfarm only). See [docs/METHODOLOGY.md](docs/METHODOLOGY.md#cpi-and-jolts).
-- 🗺️ **Unexpected finding**: Florida pays less than the national figure for the same job, not more. Compared head-to-head on 777 occupations, Florida's mean annual wage is a median 7.7% lower, and 84% of those occupations pay less in Florida (6.5% lower when weighted by Florida employment). The Regional Comparison tab's −11.4% is a different quantity: the gap between the two *medians across occupations*. Weighting by workers instead of occupations narrows the median-wage gap to −6.3% (and flips 2025 employment growth to +2.1% in Florida vs. +1.0% nationally), because a third of Florida's occupations have under 1,000 employees and their year-over-year changes are far noisier than those of large occupations. All nominal — not cost-of-living adjusted — contrary to the +3–8% regional premium the original project brief assumed. See [docs/METHODOLOGY.md](docs/METHODOLOGY.md#florida-vs-national-wages).
-- 🏭 **Industry-sector breakdown**: 20 NAICS sectors (143–641 occupations each in 2025, ~426 on average), 92,104 occupation × sector × year rows, national level
+**Findings:**
+- 💵 **Pay fell behind inflation in 2021–22.** More than 80% of US occupations had a real (inflation-adjusted) wage decline in both years, against 7% in 2020 and 32% in 2023. Over 2015–2025 the median US occupation's real wage rose just 0.8% in total.
+- 📉 **The 2020 shock was very uneven.** Total US employment fell 5.3% in the 2020 release (Florida 4.2%). Against their own earlier trends, Waiters and Waitresses fell 25 points more, Retail Salespersons 14 and Registered Nurses 2. By 2025, the occupations present in every release were at 103% of their 2019 employment nationally and 110% in Florida. See [the methodology](docs/METHODOLOGY.md#2020-shock-and-recovery).
+- 🗺️ **For the same job, Florida pays about 8% less than the national average.** Across the 777 occupations compared head-to-head, the median gap is 7.7%, and 84% pay less in Florida. These are nominal wages, not adjusted for cost of living, so they don't show differences in purchasing power. The Regional Comparison tab's median bars ($66,290 nationally, $58,730 in Florida) imply a larger gap, about 11%, because they compare each region's middle occupation rather than the same job. [Details in the methodology](docs/METHODOLOGY.md#florida-vs-national-wages).
+- 📈 **Job-market tightness by occupation.** JOLTS publishes by industry only, so each occupation gets the rates of its industries, weighted by where its employment sits. See [the methodology](docs/METHODOLOGY.md#cpi-and-jolts).
+
+## What's included
+
+- Annual OEWS data for 2015–2025: 789–831 occupations a year (17,587 occupation × region × year rows, national and statewide Florida), with year-over-year and five-year growth features
+- Inflation-adjusted (real) wages using CPI-U, and the JOLTS tightness rates above, merged into occupation and industry tables
+- An industry-sector breakdown: 20 NAICS sectors (North American Industry Classification System), 143–641 occupations each in 2025, 92,104 occupation × sector × year rows
+- A 2020 shock-and-recovery view
+- A four-tab dashboard deployed on Render
+- An executed exploratory data analysis (EDA) notebook, plus tests with continuous integration (CI)
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/brianravelo28/labor-market-displacement-forecaster.git
 cd labor-market-displacement-forecaster
-pip install -r requirements.txt
+pip install -r requirements.txt   # Python 3.11 or newer
 python app/app.py
 # -> http://localhost:8051
 ```
@@ -61,12 +68,21 @@ The CPI and JOLTS pulls go through BLS's timeseries API, which returns at most 1
 
 ### Run the tests
 
+This project includes 70+ tests that check the pipeline is correct and repeatable: that the data is clean and consistent, that the calculations produce the right numbers, and that the dashboard shows what the data say. If a change breaks any of that, the tests catch it.
+
+A few examples of what they check:
+- **Data integrity:** keys are unique, every year is present, and real wages equal nominal wages in the base year (a sanity check that the inflation adjustment works)
+- **Calculations:** year-matched lags (a change is computed against the actual prior year, never a gap), growth features, the CPI and JOLTS merges, and the 2020 shock-and-recovery table
+- **Repeatability:** the committed 2020 table matches what the current data produce when rebuilt
+- **Data fetching:** quirks of the BLS API, such as a request that reports success but returns no data
+- **Dashboard:** every callback (the function behind each chart and filter) returns the expected output
+
+They run in a few seconds with no network access, and automatically on every push through GitHub Actions. They don't cover page layout or the live Render deployment.
+
 ```bash
 pip install -r requirements.txt pytest   # or requirements-dev.txt
 python -m pytest
 ```
-
-About 70 tests, a few seconds, no network access needed. They cover the year-matched lag logic and growth features, the CPI and JOLTS merges, the 2020 response calculation, the BLS fetchers (series IDs, the API's empty-success quirk, 10-year windows, 2015-style OEWS headers) and every dashboard callback. They also check the committed data: unique keys, every year present, real wages equal to nominal in the base year, and the 2020 response table matching what the current data produce. GitHub Actions runs them on Python 3.9 and 3.11 for every push and pull request. What they do not cover: the layout and look of the pages, and the live Render deployment.
 
 ### Explore the notebooks
 
@@ -82,8 +98,8 @@ jupyter notebook notebooks/
 
 | Tab | What it shows |
 |---|---|
-| **Occupation Search** | Search any occupation, see employment history, nominal vs. inflation-adjusted wage history, YoY trends (employment, nominal wage, real wage), a contraction flag (employment down >2% YoY), and the JOLTS job-openings/quits/layoffs rates of the industries it works in, US or FL. |
-| **Regional Comparison** | US vs. Florida, counting either each occupation or each worker (employment-weighted) equally via a toggle: employment growth (median with 25th–75th percentile whiskers, since a median-only bar hid how much occupations actually vary), median wage level, the share of occupations with nominal and with real (after-CPI) wage decline, the share contracting, and the JOLTS job-openings rate |
+| **Occupation Search** | Search any occupation, see employment history, nominal vs. inflation-adjusted wage history, year-over-year trends (employment, nominal wage, real wage), a contraction flag (employment down more than 2% year over year), and the JOLTS job-openings/quits/layoffs rates of the industries it works in, US or FL. |
+| **Regional Comparison** | US vs. Florida, counting either each occupation or each worker (employment-weighted) equally via a toggle: employment growth (median with 25th–75th percentile whiskers, since a median-only bar hid how much occupations actually vary), the median across occupations of each occupation's mean annual wage, the share of occupations with nominal and with real (after-CPI) wage decline, the share contracting, and the JOLTS job-openings rate |
 | **Industry & Sector Analysis** | Pick a NAICS sector, see its JOLTS openings, quits and layoffs rates, a real-or-nominal-wage-growth-vs-employment-change scatter (real by default; the toggle matters mainly for where the zero line falls) and top movers. Occupations under 500 employees within a sector — in either year compared — are excluded from the ranked tables (sampling noise), though still shown in the scatter |
 | **2020 Shock & Recovery** | Pick an occupation and region: employment indexed to the 2019 release (= 100) against the total for the occupations present in every release, the change in the 2020 release, employment now vs. 2019, and the occupation's 2020 response (its change minus its 2016–2019 trend); plus tables of the hardest-hit and most resilient occupations. Occupations under 10,000 employees show their occupation group's response instead, and the card says so |
 
@@ -129,17 +145,16 @@ See [docs/SCHEMA.md](docs/SCHEMA.md) for exact column definitions and [docs/METH
 ## Data Sources
 
 - **BLS OEWS** (annual employment/wage by occupation): downloaded directly as archive files, not via the timeseries API — BLS doesn't retain multi-year OEWS history under stable series IDs. See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for how this was verified.
-- **BLS JOLTS** (monthly job openings, hires, quits, layoffs and separations rates, industry-level only — not occupation-level; state-level only for Florida total nonfarm): pulled through the timeseries API (US 16 industries and Florida total nonfarm, 2015 to 2026-08 for the US and through 2025-12 for Florida) and merged into the occupation and industry feature tables.
+- **BLS JOLTS** (monthly job openings, hires, quits, layoffs and separations rates, industry-level only — not occupation-level; state-level only for Florida total nonfarm): pulled through the timeseries API (US 16 industries and Florida total nonfarm; the US runs through August 2026 and Florida through December 2025 because state data lag, and only calendar years up to 2025 are used) and merged into the occupation and industry feature tables.
 - **BLS CPI-U** (all items, US city average, not seasonally adjusted, series `CUUR0000SA0`): used to express wages in constant 2025 dollars, deflating each OEWS year with May CPI.
 
 Full citations and API documentation links: [docs/CITATIONS.md](docs/CITATIONS.md).
 
-## Status & Limitations
+## Limitations
 
-- **Done**: OEWS annual panel (2015–2025) + engineered features, CPI-adjusted real wages and JOLTS tightness merged into the occupation and industry tables, industry-sector breakdown, the 2020 shock-and-recovery view, dashboard Tabs 1–4 deployed on Render, an executed EDA notebook, tests and CI.
 - **OEWS is not built for year-over-year comparison.** BLS's own FAQ says the survey is designed for cross-sectional estimates and is "less useful for looking at changes over time", citing classification changes and its three-year pooled sample ([BLS: Can OEWS data be used to look at changes over time?](https://www.bls.gov/oes/oes_ques.htm)). Every growth rate on the dashboard inherits that: the numbers are best read as directional, and consecutive releases share most of their underlying survey panels.
-- **Known data-quality caveats**: occupations with employment in the tens/hundreds show large YoY % swings from OEWS sampling variance — the sector tab filters these out of its rankings, but the notebook's top-movers tables don't. Some BLS estimates are carried forward unchanged between releases (in the 2024 release it pushed Florida's median employment growth to exactly 0.0%). Details in [docs/METHODOLOGY.md](docs/METHODOLOGY.md#known-limitations).
-- **Cadence**: annual, not monthly (OEWS is a point-in-time annual survey; see methodology doc for why the original monthly-cadence plan didn't match reality).
+- **Small occupations are noisy.** Occupations with employment in the tens or hundreds show large year-over-year swings from OEWS sampling variance. The sector tab leaves them out of its rankings; the notebook's top-movers tables don't. Some BLS estimates are carried forward unchanged between releases (in the 2024 release this put Florida's median employment growth at exactly 0.0%). Details in [the methodology](docs/METHODOLOGY.md#known-limitations).
+- **Annual, not monthly.** OEWS is a point-in-time annual survey.
 
 ## License
 

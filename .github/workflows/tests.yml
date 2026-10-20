@@ -11,8 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.9 is the oldest version the README claims; 3.11 is what Render runs.
-        python-version: ["3.9", "3.11"]
+        # 3.11 is the oldest version the README claims and what Render runs; 3.13 is a current release.
+        python-version: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

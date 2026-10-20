@@ -9,4 +9,4 @@ services:
       - key: DASH_DEBUG
         value: "false"
       - key: PYTHON_VERSION
-        value: "3.11.9"
+        value: "3.14.8"

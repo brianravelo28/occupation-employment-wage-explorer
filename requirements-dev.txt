@@ -3,4 +3,4 @@
 -r requirements.txt
 jupyter==1.1.1
 matplotlib==3.11.2
-pytest==9.1.1
+pytest==9.2.0

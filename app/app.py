@@ -69,6 +69,28 @@ def _balanced_totals():
 BALANCED_TOTALS = _balanced_totals()
 
 
+def real_decline_share_figure(frame):
+    """Bar chart: for each release year, the share of occupations whose real wage fell.
+
+    Counted over the occupations that have a real wage change that year (one number per
+    occupation, so small and large occupations count equally). Real wages use May CPI-U."""
+    g = frame.dropna(subset=["real_wage_growth_yoy_pct"])
+    by_year = g.groupby("year")["real_wage_growth_yoy_pct"].agg(share=lambda s: (s < 0).mean() * 100, n="size")
+    fig = go.Figure(go.Bar(
+        x=by_year.index, y=by_year["share"],
+        marker_color=["#c0392b" if v > 50 else "#4a90d9" for v in by_year["share"]],
+        text=[f"{v:.0f}%" for v in by_year["share"]], textposition="outside", cliponaxis=False,
+        customdata=by_year["n"], hovertemplate="%{x}: %{y:.0f}% of %{customdata} occupations<extra></extra>",
+    ))
+    fig.add_hline(y=50, line_dash="dot", line_color="#999")
+    fig.update_layout(
+        title="Occupations whose real wage fell, by release year",
+        yaxis=dict(title="Share of occupations (%)", range=[0, 105]),
+        xaxis=dict(dtick=1), margin=dict(t=60), showlegend=False,
+    )
+    return fig
+
+
 occ_options = (
     df[["occ_code", "occ_title"]]
     .drop_duplicates()
@@ -100,6 +122,28 @@ tab1_content = html.Div(
         chart_hint(has_legend=True),
         dcc.Graph(id="wage-chart", config=NO_MODEBAR),
         chart_hint(has_legend=True),
+        html.H3("All occupations: how many lost ground to inflation?", style={"marginTop": "32px"}),
+        html.P(
+            "Each bar is the share of occupations whose mean wage, after adjusting for CPI-U inflation, was lower "
+            "than in the previous release (red: more than half). It does not depend on the occupation selected above.",
+            style={"color": "#666"},
+        ),
+        dcc.Graph(id="real-decline-chart", figure=real_decline_share_figure(df), config=NO_MODEBAR),
+        chart_hint(),
+        html.P(
+            [
+                "Wages are deflated with each year's May CPI-U, because OEWS wages describe a May reference period. "
+                "The 2022 result holds with other CPI months; the 2021 result depends on the month used. Each survey "
+                "release pools three years of samples, so read the shares as directional. ",
+                html.A(
+                    "Details in the methodology",
+                    href="https://github.com/brianravelo28/occupation-employment-wage-explorer/blob/main/docs/METHODOLOGY.md#cpi-and-jolts",
+                    target="_blank", rel="noopener",
+                ),
+                ".",
+            ],
+            style={"color": "#888", "fontSize": "13px"},
+        ),
     ]
 )
 

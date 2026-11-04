@@ -27,6 +27,18 @@ def test_occupation_tab_renders_kpis_and_both_wage_series(dashboard):
     assert len(emp_fig.data[0].x) >= 10
 
 
+def test_real_decline_chart_shows_the_share_for_each_release_year(dashboard, occupation_features):
+    ids = {getattr(c, "id", None) for c in dashboard.app.layout._traverse()}
+    assert "real-decline-chart" in ids
+    fig = dashboard.real_decline_share_figure(occupation_features)
+    shares = dict(zip(fig.data[0].x, fig.data[0].y))
+    g = occupation_features.dropna(subset=["real_wage_growth_yoy_pct"])
+    expected = g.groupby("year")["real_wage_growth_yoy_pct"].apply(lambda s: (s < 0).mean() * 100)
+    assert sorted(shares) == list(range(2016, 2026))
+    assert [shares[y] for y in sorted(shares)] == pytest.approx([expected[y] for y in sorted(shares)])
+    assert shares[2021] > 80 and shares[2022] > 80 and shares[2020] < 10
+
+
 def test_occupation_tab_handles_a_missing_selection(dashboard):
     kpis, emp_fig, wage_fig = dashboard.update_dashboard("00-0000")
     assert text(kpis[0]) == "--"

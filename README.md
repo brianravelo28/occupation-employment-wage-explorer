@@ -90,7 +90,7 @@ The dashboard has three tabs:
 
 | Tab | What it shows |
 |---|---|
-| **Occupation Search** | Search any occupation, see employment history, nominal vs. inflation-adjusted wage history, year-over-year trends (employment, nominal wage, real wage), a contraction flag (employment down more than 2% year over year), and the JOLTS job-openings/quits/layoffs rates of the industries it works in. |
+| **Occupation Search** | Search any occupation, see employment history, nominal vs. inflation-adjusted wage history, year-over-year trends (employment, nominal wage, real wage), a contraction flag (employment down more than 2% year over year), and the JOLTS job-openings/quits/layoffs rates of the industries it works in. Below the occupation charts, a bar chart shows for every release year the share of all occupations whose real wage fell. |
 | **Industry & Sector Analysis** | Pick a NAICS sector, see its JOLTS openings, quits and layoffs rates, a real-or-nominal-wage-growth-vs-employment-change scatter (real by default; the toggle matters mainly for where the zero line falls) and top movers. Occupations under 500 employees within a sector — in either year compared — are excluded from the ranked tables (sampling noise), though still shown in the scatter |
 | **2020 Shock & Recovery** | Pick an occupation: employment indexed to the 2019 release (= 100) against the total for the occupations present in every release, the change in the 2020 release, employment now vs. 2019, and the occupation's 2020 response (its change minus its 2016–2019 trend); plus tables of the hardest-hit and most resilient occupations. Occupations under 10,000 employees show their occupation group's response instead, and the card says so |
 

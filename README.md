@@ -45,7 +45,8 @@ The processed datasets are committed under `data/processed/`, so the dashboard r
 ### Rebuild everything from raw BLS data (optional)
 
 ```bash
-# Download BLS OEWS annual archives, 2015-2025 (~900MB total, ~30-40 min the first time)
+# Download BLS OEWS annual archives (~900MB total, ~30-40 min the first time): the MB3
+# research estimates for 2015-2020 (data/raw/oews_mb3/) and the standard files for 2021-2025
 python data/fetch_oews.py
 python data/fetch_oews_industry.py
 

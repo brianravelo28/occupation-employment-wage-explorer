@@ -2,7 +2,10 @@
 
 ## BLS Occupational Employment and Wage Statistics (OEWS)
 - Program overview: https://www.bls.gov/oes/
-- Annual "All Data" archives (used by `data/fetch_oews.py`): https://www.bls.gov/oes/tables.htm
+- Annual "All Data" archives, 2021-2025 (used by `data/fetch_oews.py`): https://www.bls.gov/oes/tables.htm
+- MB3 research estimates, 2015-2020 recalculated under the method BLS adopted with the May 2021 estimates (used by `data/fetch_oews.py` for those years): https://www.bls.gov/oes/oes-mb3-methods.htm
+- Can OEWS data be used to look at changes over time? (the FAQ quoted in the methodology): https://www.bls.gov/oes/oes_ques.htm
+- Relative standard errors (`EMP_PRSE`, `MEAN_PRSE`) are columns of the same archive files; BLS publishes none for medians or percentiles.
 - Technical/series-format documentation: https://download.bls.gov/pub/time.series/oe/oe.txt
 - Standard Occupational Classification (SOC) system: https://www.bls.gov/soc/
 

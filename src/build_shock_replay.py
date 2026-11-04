@@ -4,7 +4,7 @@ How each occupation responded to the 2020 shock, for the 2020 Shock & Recovery t
 Nothing here is a fitted elasticity. It is an observed episode: the change in an
 occupation's employment in the 2020 OEWS release, minus how fast the same
 occupation had been growing in the releases before it, so only the part that is
-plausibly the shock remains. It is a description of what happened, not a forecast.
+plausibly the shock remains. It describes what happened in 2020.
 
 Reliability rule: a single occupation's year-over-year change is mostly
 sampling noise below about 10,000 employees (the standard deviation of annual

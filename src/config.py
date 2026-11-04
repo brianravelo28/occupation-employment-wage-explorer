@@ -22,8 +22,13 @@ BLS_API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
 OEWS_YEARS = list(range(2015, 2026))  # 2015-2025
 OEWS_ARCHIVE_URL = "https://www.bls.gov/oes/special-requests/oesm{yy}all.zip"
 
-# Florida state FIPS code, used for JOLTS state-level series.
-FL_STATE_FIPS = "12"
+# BLS moved OEWS to a new estimation method (MB3) with the May 2021 estimates and
+# published 2015-2020 recalculated under it as "research estimates"
+# (https://www.bls.gov/oes/oes-mb3-methods.htm). The pipeline uses those for
+# 2015-2020 so that all 11 years come from one method.
+OEWS_MB3_YEARS = list(range(2015, 2021))  # 2015-2020
+OEWS_MB3_RAW = DATA_RAW / "oews_mb3"
+OEWS_MB3_ARCHIVE_URL = "https://www.bls.gov/oes/special-requests/oes_mb3_{year}a.zip"
 
 # OEWS 2-digit/range NAICS sector codes (national-level industry breakdown).
 # Verified against the 2024 all_data file (i_group == "sector"); used as a
@@ -36,10 +41,9 @@ OEWS_SECTOR_NAICS_CODES = [
 
 # NAICS industry codes used for industry-level JOLTS series (position 4-9 of
 # a JTS series id). Verified against https://download.bls.gov/pub/time.series/jt/jt.industry
-# "000000" = total nonfarm (all industries). Industry detail is available for the
-# US only; Florida has the total-nonfarm series alone. Sub-sectors (retail,
-# healthcare, hospitality) are included alongside the major groups because they
-# dominate Florida's economy.
+# "000000" = total nonfarm (all industries). Sub-sectors (retail, healthcare,
+# hospitality) are included alongside the major groups because they are
+# among the largest employers of the occupations the dashboard covers.
 JOLTS_INDUSTRY_SECTORS = {
     "000000": "Total nonfarm",
     "110099": "Mining and logging",

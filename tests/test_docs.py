@@ -43,7 +43,7 @@ def test_relative_links_and_anchors_resolve(doc):
 
 def test_the_anchors_other_tools_link_to_still_exist():
     methodology = anchors(ROOT / "docs" / "METHODOLOGY.md")
-    assert {"cpi-and-jolts", "2020-shock-and-recovery", "florida-vs-national-wages", "known-limitations"} <= methodology
+    assert {"cpi-and-jolts", "2020-shock-and-recovery", "known-limitations"} <= methodology
 
 
 def test_the_slug_function_matches_github_for_a_tricky_heading():

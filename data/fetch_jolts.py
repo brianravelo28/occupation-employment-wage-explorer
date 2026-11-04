@@ -1,20 +1,19 @@
 """
-Fetch monthly JOLTS (Job Openings and Labor Turnover Survey) rates: the US
-by industry sector, and Florida for total nonfarm only (BLS publishes no
-state-level industry detail).
+Fetch monthly national JOLTS (Job Openings and Labor Turnover Survey) rates by
+industry sector.
 
 JOLTS has no occupation-level breakdown -- series are keyed by NAICS industry
 only (verified against https://download.bls.gov/pub/time.series/jt/jt.industry
 and jt.dataelement). These industry-level rates get joined onto occupations
-via a primary-industry mapping in the merge step, as a regional-tightness
-proxy rather than a true occupation-specific vacancy rate.
+via the occupation x industry employment mix in the merge step, as an
+exposure measure rather than a true occupation-specific vacancy rate.
 
 Series ID format (post-Oct-2020 restructure), 21 chars -- verified by
 character-index decomposition of a known-working series ID pulled live from
-the API (JTS000000120000000JOR, Florida total-nonfarm job openings rate):
+the API (JTS000000000000000JOR, national total-nonfarm job openings rate):
     JTS + industry_code(6) + state_code(2) + area_code(6) + sizeclass(1)
         + dataelement_code(2) + ratelevel_code(1)
-National uses state_code "00". Note: a secondary source (GovEx-style tutorial
+The series are national, so state_code is "00". Note: a secondary source (GovEx-style tutorial
 summary) described the area code field as 5 digits instead of 6 -- that was
 wrong; trust the empirical decomposition above.
 """
@@ -32,7 +31,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from config import (
     BLS_API_KEY,
     BLS_API_URL,
-    FL_STATE_FIPS,
     JOLTS_DATA_ELEMENTS,
     JOLTS_INDUSTRY_SECTORS,
     JOLTS_RAW,
@@ -43,27 +41,18 @@ START_YEAR = 2015
 END_YEAR = date.today().year
 BATCH_SIZE = 25  # unregistered BLS API v2 limit: 25 series per query, 25 queries/day
 WINDOW_YEARS = 10  # ...and at most 10 years per query, so 2015-2026 takes two windows
-REGIONS = {"US": "00", "FL": FL_STATE_FIPS}
 
 
 def build_series_ids():
     ids = {}
     for industry_code, industry_name in JOLTS_INDUSTRY_SECTORS.items():
-        for region, state_code in REGIONS.items():
-            # BLS publishes state-level JOLTS for total nonfarm only; industry
-            # detail exists nationally. Florida retail, leisure & hospitality,
-            # health care, construction and manufacturing were each queried and
-            # return "Series does not exist" (checked 2026-10-12).
-            if region != "US" and industry_code != "000000":
-                continue
-            for elem_code, elem_name in JOLTS_DATA_ELEMENTS.items():
-                sid = f"JTS{industry_code}{state_code}0000000{elem_code}"
-                ids[sid] = {
-                    "industry_code": industry_code,
-                    "industry_name": industry_name,
-                    "region": region,
-                    "data_element": elem_name,
-                }
+        for elem_code, elem_name in JOLTS_DATA_ELEMENTS.items():
+            sid = f"JTS{industry_code}000000000{elem_code}"
+            ids[sid] = {
+                "industry_code": industry_code,
+                "industry_name": industry_name,
+                "data_element": elem_name,
+            }
     return ids
 
 
@@ -135,7 +124,6 @@ def build_panel() -> pd.DataFrame:
                     {
                         "year": int(point["year"]),
                         "month": int(point["period"][1:]),
-                        "region": info["region"],
                         "industry_code": info["industry_code"],
                         "industry_name": info["industry_name"],
                         "data_element": info["data_element"],
@@ -146,7 +134,7 @@ def build_panel() -> pd.DataFrame:
             time.sleep(1)
 
     df = pd.DataFrame(rows)
-    return df.sort_values(["region", "industry_code", "data_element", "year", "month"]).reset_index(drop=True)
+    return df.sort_values(["industry_code", "data_element", "year", "month"]).reset_index(drop=True)
 
 
 if __name__ == "__main__":
@@ -156,4 +144,4 @@ if __name__ == "__main__":
     out_path = DATA_PROCESSED / "jolts_industry_panel.csv"
     panel.to_csv(out_path, index=False)
     print(f"\nSaved {len(panel):,} rows to {out_path}")
-    print(panel.groupby(["region", "data_element"])["rate"].count())
+    print(panel.groupby("data_element")["rate"].count())

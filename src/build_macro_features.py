@@ -10,9 +10,7 @@ JOLTS: published by industry only, never by occupation. To get an occupation
 number, each occupation's rate is the average of its industries' rates weighted
 by where that occupation's employment sits (from the national occupation x
 sector OEWS panel). That is an exposure measure, not an occupation-specific
-vacancy rate. Florida occupations use the same national sector rates, because
-BLS publishes Florida JOLTS for total nonfarm only; the Florida total-nonfarm
-series enters separately as a regional-tightness feature.
+vacancy rate.
 
 Each JOLTS annual figure is the mean of the available months in the OEWS
 reference calendar year (data through December of that year).
@@ -62,10 +60,10 @@ def add_real_wage_features(df: pd.DataFrame, base_year: Optional[int] = None) ->
     return df
 
 
-def annual_jolts(region: str = "US") -> pd.DataFrame:
-    """Mean monthly rate per (year, industry_code, element) for one region."""
+def annual_jolts() -> pd.DataFrame:
+    """Mean monthly rate per (year, industry_code, element)."""
     j = pd.read_csv(DATA_PROCESSED / "jolts_industry_panel.csv", dtype={"industry_code": str})
-    j = j[(j["region"] == region) & j["data_element"].isin(JOLTS_ELEMENTS)]
+    j = j[j["data_element"].isin(JOLTS_ELEMENTS)]
     out = j.groupby(["year", "industry_code", "data_element"])["rate"].mean().reset_index()
     out["suffix"] = out["data_element"].map(JOLTS_ELEMENTS)
     return out
@@ -75,7 +73,7 @@ def add_sector_jolts(industry_df: pd.DataFrame) -> pd.DataFrame:
     """Each occupation x sector row gets its sector's JOLTS annual rates (jolts_*_rate)."""
     df = industry_df.copy()
     code = df["naics"].map(SECTOR_TO_JOLTS)
-    rates = annual_jolts("US")
+    rates = annual_jolts()
     for suffix, g in rates.groupby("suffix"):
         lookup = g.set_index(["year", "industry_code"])["rate"]
         idx = pd.MultiIndex.from_arrays([df["year"], code])
@@ -84,8 +82,7 @@ def add_sector_jolts(industry_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_occupation_jolts(occ_df: pd.DataFrame, industry_df: pd.DataFrame) -> pd.DataFrame:
-    """Employment-weighted JOLTS exposure per (year, occupation), plus the region's
-    own total-nonfarm openings rate (FL series for FL rows, US for US rows)."""
+    """Employment-weighted JOLTS exposure per (year, occupation)."""
     df = occ_df.copy()
     sect = add_sector_jolts(industry_df)
     rate_cols = [f"jolts_{s}_rate" for s in JOLTS_ELEMENTS.values()]
@@ -97,11 +94,4 @@ def add_occupation_jolts(occ_df: pd.DataFrame, industry_df: pd.DataFrame) -> pd.
     weighted["w"] = w
     agg = weighted.groupby(["year", "occ_code"]).sum()
     exposure = agg[rate_cols].div(agg["w"], axis=0).rename(columns={c: c.replace("jolts_", "jolts_exposure_") for c in rate_cols})
-    df = df.merge(exposure.reset_index(), on=["year", "occ_code"], how="left")
-
-    totals = []
-    for region in ["US", "FL"]:
-        t = annual_jolts(region)
-        t = t[(t["industry_code"] == "000000") & (t["suffix"] == "openings")]
-        totals.append(pd.DataFrame({"year": t["year"], "region": region, "jolts_region_openings_rate": t["rate"]}))
-    return df.merge(pd.concat(totals), on=["year", "region"], how="left")
+    return df.merge(exposure.reset_index(), on=["year", "occ_code"], how="left")

@@ -13,11 +13,8 @@ def test_figure_is_quoted_in_the_docs_as_the_data_produce_it(label, text, doc):
 
 
 def test_there_are_enough_figures_to_matter():
-    assert len(FIGURES) >= 35
+    assert len(FIGURES) >= 20
 
 
-def test_the_weighted_median_agrees_with_the_dashboards(dashboard):
-    import pandas as pd
-
-    values, weights = pd.Series([1.0, 2.0, 3.0, 10.0]), pd.Series([5.0, 1.0, 1.0, 3.0])
-    assert doc_figures.weighted_median(values, weights) == pytest.approx(dashboard.weighted_quantile(values, weights, 0.5))
+def test_signed_uses_a_true_minus_and_an_explicit_plus():
+    assert doc_figures.signed(-7.74) == "−7.7%" and doc_figures.signed(0.4) == "+0.4%"

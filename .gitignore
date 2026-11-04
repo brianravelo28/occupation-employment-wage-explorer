@@ -10,5 +10,5 @@ venv/
 # this repo with no build-time access to BLS (which has had multi-day
 # outages during development), so the app needs its processed CSVs
 # committed rather than regenerated at build time. Total is
-# ~30MB, well within normal git limits. Re-run the src/ pipeline and commit
+# ~40MB, well within normal git limits. Re-run the src/ pipeline and commit
 # the refreshed files whenever the underlying OEWS data changes.

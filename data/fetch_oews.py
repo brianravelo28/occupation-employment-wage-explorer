@@ -1,6 +1,6 @@
 """
 Download and parse BLS OEWS annual "All Data" archives into a single
-occupation x year panel (national + Florida).
+national occupation x year panel.
 
 OEWS is published annually (reference period May), not as a continuous
 multi-year timeseries under stable series IDs -- see README.md for why this
@@ -8,10 +8,17 @@ downloads per-year archives instead of using the BLS timeseries API.
 
 Column names and casing vary by release year (verified: 2015 uses lowercase
 with spaces e.g. "occ code"; 2019 uses lowercase with underscores; 2024 uses
-UPPERCASE_WITH_UNDERSCORES; PRIM_STATE doesn't exist before ~2020). This
-script normalizes headers before extracting fields, and identifies Florida
-via AREA_TYPE==2 and AREA==12 (FL FIPS code), which is stable across years,
-rather than relying on PRIM_STATE.
+UPPERCASE_WITH_UNDERSCORES). This script normalizes headers before
+extracting fields, and keeps the national rows (AREA_TYPE == 1).
+
+Estimation method: BLS switched OEWS to a model-based method (MB3) with the May
+2021 estimates and recalculated 2015-2020 under it. 2015-2020 therefore come from
+those research estimates (oes_mb3_{year}a.zip, same layout as the standard files)
+and 2021-2025 from the standard archives, so every year uses MB3.
+
+Besides the employment and wage estimates it keeps BLS's percent relative
+standard errors for employment and the mean wage (EMP_PRSE, MEAN_PRSE): how
+precise each year's estimate is. BLS publishes none for medians or percentiles.
 """
 import io
 import re
@@ -23,11 +30,18 @@ import pandas as pd
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from config import BLS_USER_AGENT, OEWS_ARCHIVE_URL, OEWS_RAW, OEWS_YEARS, DATA_PROCESSED
+from config import (
+    BLS_USER_AGENT,
+    DATA_PROCESSED,
+    OEWS_ARCHIVE_URL,
+    OEWS_MB3_ARCHIVE_URL,
+    OEWS_MB3_RAW,
+    OEWS_MB3_YEARS,
+    OEWS_RAW,
+    OEWS_YEARS,
+)
 
 NATIONAL_AREA_TYPE = 1
-STATE_AREA_TYPE = 2
-FLORIDA_AREA_CODE = 12  # FIPS code, stable across years regardless of PRIM_STATE column
 
 # canonical_name -> possible header variants seen across release years
 COLUMN_SYNONYMS = {
@@ -46,9 +60,23 @@ COLUMN_SYNONYMS = {
     "a_median": ["a_median"],
     "a_pct10": ["a_pct10"],
     "a_pct90": ["a_pct90"],
+    "emp_prse": ["emp_prse"],
+    "mean_prse": ["mean_prse"],
 }
 
 NUMERIC_COLUMNS = ["tot_emp", "h_mean", "a_mean", "h_median", "a_median", "a_pct10", "a_pct90"]
+PRSE_COLUMNS = ["emp_prse", "mean_prse"]
+COLUMN_RENAMES = {
+    "tot_emp": "employment_level",
+    "h_mean": "wage_hourly_mean",
+    "a_mean": "wage_annual_mean",
+    "h_median": "wage_hourly_median",
+    "a_median": "wage_annual_median",
+    "a_pct10": "wage_annual_pct10",
+    "a_pct90": "wage_annual_pct90",
+    "emp_prse": "employment_prse",
+    "mean_prse": "wage_annual_mean_prse",
+}
 
 
 def _normalize_header(col: str) -> str:
@@ -58,11 +86,14 @@ def _normalize_header(col: str) -> str:
 
 
 def download_year(year: int) -> "zipfile.ZipFile":
-    yy = f"{year % 100:02d}"
-    dest = OEWS_RAW / f"oesm{yy}all.zip"
+    if year in OEWS_MB3_YEARS:
+        dest, url = OEWS_MB3_RAW / f"oes_mb3_{year}a.zip", OEWS_MB3_ARCHIVE_URL.format(year=year)
+    else:
+        yy = f"{year % 100:02d}"
+        dest, url = OEWS_RAW / f"oesm{yy}all.zip", OEWS_ARCHIVE_URL.format(yy=yy)
     if not dest.exists():
-        url = OEWS_ARCHIVE_URL.format(yy=yy)
         print(f"  downloading {url} ...")
+        dest.parent.mkdir(parents=True, exist_ok=True)
         resp = requests.get(url, headers={"User-Agent": BLS_USER_AGENT}, timeout=120)
         resp.raise_for_status()
         dest.write_bytes(resp.content)
@@ -92,8 +123,9 @@ def load_year_raw(year: int) -> pd.DataFrame:
         raise ValueError(f"OEWS {year}: missing expected columns after normalization: {missing}")
 
     df["naics"] = df["naics"].astype(str)
+    df["area_type"] = pd.to_numeric(df["area_type"], errors="coerce")  # text in the 2015-2018 research files
     df["o_group"] = df["o_group"].astype(str).str.strip()
-    for col in NUMERIC_COLUMNS:
+    for col in NUMERIC_COLUMNS + PRSE_COLUMNS:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["year"] = year
     return df
@@ -103,12 +135,8 @@ def parse_year(year: int) -> pd.DataFrame:
     df = load_year_raw(year)
     # 2015-era files truncate the value to "detail" instead of "detailed"
     df = df[(df["o_group"].isin(["detailed", "detail"])) & (df["naics"].isin(["000000", "0"]))]
-    df = df[df["area_type"].isin([NATIONAL_AREA_TYPE, STATE_AREA_TYPE])]
-    df = df[~((df["area_type"] == STATE_AREA_TYPE) & (df["area"] != FLORIDA_AREA_CODE))]
-
-    df["region"] = df["area_type"].map({NATIONAL_AREA_TYPE: "US", STATE_AREA_TYPE: "FL"})
-
-    return df[["year", "region", "occ_code", "occ_title"] + NUMERIC_COLUMNS]
+    df = df[df["area_type"] == NATIONAL_AREA_TYPE]
+    return df[["year", "occ_code", "occ_title"] + NUMERIC_COLUMNS + PRSE_COLUMNS]
 
 
 def build_panel(years=OEWS_YEARS) -> pd.DataFrame:
@@ -116,17 +144,7 @@ def build_panel(years=OEWS_YEARS) -> pd.DataFrame:
     for year in years:
         print(f"Parsing OEWS {year} ...")
         frames.append(parse_year(year))
-    panel = pd.concat(frames, ignore_index=True)
-    panel = panel.rename(columns={
-        "tot_emp": "employment_level",
-        "h_mean": "wage_hourly_mean",
-        "a_mean": "wage_annual_mean",
-        "h_median": "wage_hourly_median",
-        "a_median": "wage_annual_median",
-        "a_pct10": "wage_annual_pct10",
-        "a_pct90": "wage_annual_pct90",
-    })
-    return panel
+    return pd.concat(frames, ignore_index=True).rename(columns=COLUMN_RENAMES)
 
 
 if __name__ == "__main__":

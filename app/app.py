@@ -1,16 +1,15 @@
 """
 Occupation Employment & Wage Explorer -- Dash app.
 
-Four tabs: Occupation Search, Regional Comparison (US vs FL), Industry &
-Sector Analysis, and 2020 Shock & Recovery. Everything runs on the processed
-OEWS tables in data/processed/, with CPI-U inflation-adjusted wages and JOLTS
-job-market tightness merged in by src/build_macro_features.py. The dashboard is
-descriptive: it reports what the data show and makes no forecasts.
+Three tabs: Occupation Search, Industry & Sector Analysis, and 2020 Shock &
+Recovery. Everything runs on the national processed OEWS tables in
+data/processed/, with CPI-U inflation-adjusted wages and JOLTS job-market
+tightness merged in by src/build_macro_features.py. The dashboard is
+descriptive: it reports what the data show.
 """
 from pathlib import Path
 
 import dash
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from dash import Input, Output, dash_table, dcc, html
@@ -34,6 +33,11 @@ CHART_HINT_LEGEND_CLAUSE = " Click a legend entry to hide that series; double-cl
 NO_MODEBAR = {"displayModeBar": False}
 
 
+def rse_note(rse):
+    """' · RSE 1.5%' (BLS's percent relative standard error), or '' where BLS publishes none."""
+    return f" · RSE {rse:.1f}%" if pd.notna(rse) else ""
+
+
 def chart_hint(has_legend=False):
     text = CHART_HINT_BASE + (CHART_HINT_LEGEND_CLAUSE if has_legend else "")
     return html.P(text, style={"margin": "4px 2px 16px", "color": "#999", "fontSize": "12px", "fontStyle": "italic"})
@@ -44,24 +48,22 @@ df = pd.read_csv(DATA_PATH)
 # separate schedule and may not have finished yet -- degrade gracefully.
 industry_df = pd.read_csv(INDUSTRY_DATA_PATH, dtype={"naics": str}) if INDUSTRY_DATA_PATH.exists() else None
 # Observed 2020 employment response per occupation (src/build_shock_replay.py), for the 2020 tab.
-shock_response = pd.read_csv(SHOCK_PATH).set_index(["region", "occ_code"]) if SHOCK_PATH.exists() else None
+shock_response = pd.read_csv(SHOCK_PATH).set_index("occ_code") if SHOCK_PATH.exists() else None
 FIRST_YEAR, LATEST_YEAR = int(df["year"].min()), int(df["year"].max())
 BASE_YEAR = 2019  # the last release before the 2020 shock
 
 
 def _balanced_totals():
-    """Per region: total employment of the occupations present in every release, indexed to BASE_YEAR = 100.
+    """Total employment of the occupations present in every release, indexed to BASE_YEAR = 100.
 
     Using one fixed set of occupations keeps the comparison line from moving just because
     SOC code changes added or dropped occupations along the way."""
-    out = {}
-    for region, g in df.dropna(subset=["employment_level"]).groupby("region"):
-        years = sorted(g["year"].unique())
-        present = g.groupby("occ_code")["year"].nunique()
-        codes = present[present == len(years)].index
-        totals = g[g["occ_code"].isin(codes)].groupby("year")["employment_level"].sum()
-        out[region] = (totals / totals.loc[BASE_YEAR] * 100, len(codes))
-    return out
+    g = df.dropna(subset=["employment_level"])
+    years = sorted(g["year"].unique())
+    present = g.groupby("occ_code")["year"].nunique()
+    codes = present[present == len(years)].index
+    totals = g[g["occ_code"].isin(codes)].groupby("year")["employment_level"].sum()
+    return totals / totals.loc[BASE_YEAR] * 100, len(codes)
 
 
 BALANCED_TOTALS = _balanced_totals()
@@ -91,64 +93,14 @@ tab1_content = html.Div(
                     style={"flex": "1", "minWidth": "320px"},
                     placeholder="Search for an occupation...",
                 ),
-                dcc.RadioItems(
-                    id="region-toggle",
-                    options=[{"label": " National (US)", "value": "US"}, {"label": " Florida", "value": "FL"}],
-                    value="US",
-                    inline=True,
-                ),
             ],
         ),
         html.Div(id="kpi-row", style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(132px, 1fr))", "gap": "16px", "marginBottom": "24px"}),
         dcc.Graph(id="employment-chart", config=NO_MODEBAR),
-        chart_hint(),
+        chart_hint(has_legend=True),
         dcc.Graph(id="wage-chart", config=NO_MODEBAR),
         chart_hint(has_legend=True),
     ]
-)
-
-tab2_content = html.Div(
-    style={"marginTop": "20px"},
-    children=[
-        html.P(
-            f"Occupations present in both US and FL for the most recent year ({LATEST_YEAR}). "
-            "'Real' wage changes are deflated with the national CPI-U (May to May), so both regions "
-            "get the same inflation rate; the job openings rate is each region's JOLTS total nonfarm "
-            "series. The employment growth chart's whiskers span the 25th-75th percentile (not the full range, which "
-            "is dominated by a handful of small occupations with extreme swings from OEWS sampling "
-            "noise) -- so a median near zero can still sit on top of a wide spread.",
-            style={"color": "#666"},
-        ),
-        dcc.RadioItems(
-            id="regional-weighting",
-            options=[
-                {"label": " Each occupation counts equally", "value": "occupation"},
-                {"label": " Each worker counts equally (weighted by employment)", "value": "worker"},
-            ],
-            value="occupation",
-            inline=True,
-            inputStyle={"marginLeft": "16px", "marginRight": "4px"},
-            style={"margin": "4px 0 8px"},
-        ),
-        html.P(
-            "By occupation, a 500-person occupation counts as much as Retail Salespersons (millions of workers). "
-            "By worker, each occupation counts in proportion to its employment in that region, so the figures "
-            "describe what the typical worker rather than the typical occupation experiences. Weights are each "
-            f"region's own {LATEST_YEAR} employment; the job openings rate is not affected.",
-            style={"color": "#888", "fontSize": "13px", "marginTop": 0},
-        ),
-        html.Div(
-            style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "16px"},
-            children=[
-                dcc.Graph(id="regional-employment-growth"),
-                dcc.Graph(id="regional-wage-level"),
-                dcc.Graph(id="regional-wage-decline-prevalence"),
-                dcc.Graph(id="regional-real-wage-decline-prevalence"),
-                dcc.Graph(id="regional-contraction-prevalence"),
-                dcc.Graph(id="regional-job-openings"),
-            ],
-        ),
-    ],
 )
 
 if industry_df is not None:
@@ -166,7 +118,7 @@ if industry_df is not None:
     else:
         sector_options = industry_df[["naics"]].drop_duplicates().assign(naics_title=lambda d: d["naics"]).sort_values("naics_title")
     DEFAULT_SECTOR = sector_options["naics"].iloc[0]
-    tab3_content = html.Div(
+    tab2_content = html.Div(
         children=[
             dcc.Dropdown(
                 id="sector-dropdown",
@@ -198,12 +150,12 @@ if industry_df is not None:
         ]
     )
 else:
-    tab3_content = html.Div(
+    tab2_content = html.Div(
         style={"marginTop": "20px", "color": "#999"},
         children="Industry-sector data not yet available (still parsing OEWS archives -- rerun src/fetch_oews_industry.py then reload).",
     )
 
-tab4_content = html.Div(
+tab3_content = html.Div(
     children=[
         html.P(
             "How did occupations fare when the 2020 recession hit, and how far have they come back? Employment is "
@@ -229,12 +181,6 @@ tab4_content = html.Div(
                     style={"flex": "1", "minWidth": "320px"},
                     placeholder="Search for an occupation...",
                 ),
-                dcc.RadioItems(
-                    id="shock-region-toggle",
-                    options=[{"label": " National (US)", "value": "US"}, {"label": " Florida", "value": "FL"}],
-                    value="US",
-                    inline=True,
-                ),
             ],
         ),
         html.Div(id="shock-kpi-row", style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(160px, 1fr))", "gap": "16px", "marginBottom": "24px"}),
@@ -249,7 +195,7 @@ tab4_content = html.Div(
         ),
         html.P(
             "The two tables list occupations with at least 10,000 employees (their own response, not their "
-            "group's) in the selected region, leaving out the \"All Other\" residual categories, which don't describe a "
+            "group's), leaving out the \"All Other\" residual categories, which don't describe a "
             "single job. Differences of a few points are within the survey's sampling noise; the large ones are the signal.",
             style={"color": "#888", "fontSize": "12px"},
         ),
@@ -261,7 +207,7 @@ app.layout = html.Div(
     children=[
         html.H1("Occupation Employment & Wage Explorer", style={"marginBottom": "4px"}),
         html.P(
-            f"BLS OEWS data, {FIRST_YEAR}-{LATEST_YEAR} (annual), with inflation-adjusted (real) wages from CPI-U and "
+            f"US national BLS OEWS data, {FIRST_YEAR}-{LATEST_YEAR} (annual), with inflation-adjusted (real) wages from CPI-U and "
             "JOLTS job-market tightness.",
             style={"color": "#666", "marginTop": 0},
         ),
@@ -270,9 +216,8 @@ app.layout = html.Div(
             value="tab-1",
             children=[
                 dcc.Tab(label="Occupation Search", value="tab-1", children=[tab1_content]),
-                dcc.Tab(label="Regional Comparison (US vs FL)", value="tab-2", children=[tab2_content]),
-                dcc.Tab(label="Industry & Sector Analysis", value="tab-3", children=[tab3_content]),
-                dcc.Tab(label="2020 Shock & Recovery", value="tab-4", children=[tab4_content]),
+                dcc.Tab(label="Industry & Sector Analysis", value="tab-2", children=[tab2_content]),
+                dcc.Tab(label="2020 Shock & Recovery", value="tab-3", children=[tab3_content]),
             ],
         ),
     ],
@@ -301,13 +246,12 @@ def kpi_card(label, value, sub=None, color="#222"):
     Output("employment-chart", "figure"),
     Output("wage-chart", "figure"),
     Input("occ-dropdown", "value"),
-    Input("region-toggle", "value"),
 )
-def update_dashboard(occ_code, region):
-    sub = df[(df["occ_code"] == occ_code) & (df["region"] == region)].sort_values("year")
+def update_dashboard(occ_code):
+    sub = df[df["occ_code"] == occ_code].sort_values("year")
     if sub.empty:
         empty_fig = go.Figure()
-        empty_fig.update_layout(title="No data for this occupation in the selected region")
+        empty_fig.update_layout(title="No data for this occupation")
         return [kpi_card("No data", "--")], empty_fig, empty_fig
 
     latest = sub.iloc[-1]
@@ -319,13 +263,13 @@ def update_dashboard(occ_code, region):
     contraction = latest["contraction_flag_12mo"]
 
     kpis = [
-        kpi_card("Employment", f"{latest['employment_level']:,.0f}", f"as of {int(latest['year'])}"),
+        kpi_card("Employment", f"{latest['employment_level']:,.0f}", f"as of {int(latest['year'])}{rse_note(latest['employment_prse'])}"),
         kpi_card(
             "Employment YoY",
             f"{emp_growth:+.1f}%" if pd.notna(emp_growth) else "n/a",
             color="#c0392b" if pd.notna(emp_growth) and emp_growth < 0 else "#27ae60",
         ),
-        kpi_card("Mean wage", f"${latest['wage_annual_mean']:,.0f}", "annual, nominal"),
+        kpi_card("Mean wage", f"${latest['wage_annual_mean']:,.0f}", f"annual, nominal{rse_note(latest['wage_annual_mean_prse'])}"),
         kpi_card(
             "Wage YoY (nominal)",
             f"{wage_growth:+.1f}%" if pd.notna(wage_growth) else "n/a",
@@ -353,181 +297,35 @@ def update_dashboard(occ_code, region):
     ]
 
     emp_fig = go.Figure()
+    # BLS publishes a relative standard error (RSE) for each year's employment estimate; the
+    # band is the estimate plus or minus 1.96 standard errors, a rough 95% range for that
+    # year's sampling error. It does not account for the overlap between releases.
+    banded = sub.dropna(subset=["employment_level", "employment_prse"])
+    if not banded.empty:
+        half = 1.96 * banded["employment_prse"] / 100 * banded["employment_level"]
+        emp_fig.add_trace(go.Scatter(
+            x=list(banded["year"]) + list(banded["year"])[::-1],
+            y=list(banded["employment_level"] + half) + list((banded["employment_level"] - half))[::-1],
+            fill="toself", fillcolor="rgba(74, 144, 217, 0.18)", line=dict(width=0), hoverinfo="skip",
+            name="Approx. 95% sampling range", showlegend=True,
+        ))
     emp_fig.add_trace(go.Scatter(x=sub["year"], y=sub["employment_level"], mode="lines+markers", name="Employment"))
-    emp_fig.update_layout(title=f"Employment history — {occ_title} ({region})", yaxis_title="Employment", margin=dict(t=50))
+    emp_fig.update_layout(
+        title=f"Employment history — {occ_title}", yaxis_title="Employment", margin=dict(t=70),
+        legend=dict(orientation="h", y=1.08, x=0),
+    )
 
     wage_fig = go.Figure()
     wage_fig.add_trace(go.Scatter(x=sub["year"], y=sub["wage_annual_mean"], mode="lines+markers", name="Nominal"))
     wage_fig.add_trace(go.Scatter(x=sub["year"], y=sub["wage_annual_mean_real"], mode="lines+markers", name=f"Real ({LATEST_YEAR} dollars)"))
     wage_fig.update_layout(
-        title=f"Annual mean wage, nominal vs. inflation-adjusted — {occ_title} ({region})",
+        title=f"Annual mean wage, nominal vs. inflation-adjusted — {occ_title}",
         yaxis_title="Annual mean wage ($)",
         margin=dict(t=70),
         legend=dict(orientation="h", y=1.08, x=0),
     )
 
     return kpis, emp_fig, wage_fig
-
-
-def weighted_quantile(values, weights, q):
-    """q-quantile of `values` where each value counts `weights` times (here: employment).
-
-    Uses midpoint cumulative weights, so equal weights reproduce the ordinary
-    median. Entries missing a value or a weight are ignored."""
-    ok = values.notna() & weights.notna() & (weights > 0)
-    v, w = values[ok].to_numpy(dtype=float), weights[ok].to_numpy(dtype=float)
-    if len(v) == 0:
-        return float("nan")
-    order = np.argsort(v, kind="stable")
-    v, w = v[order], w[order]
-    cumulative = (np.cumsum(w) - 0.5 * w) / w.sum()
-    return float(np.interp(q, cumulative, v))
-
-
-def share_where(series, predicate, weights=None):
-    """Percent of entries satisfying `predicate`, among those with a value.
-
-    Unweighted it counts occupations; with `weights` (employment) it is the
-    share of workers in occupations that satisfy it."""
-    ok = series.notna() if weights is None else series.notna() & weights.notna()
-    hit = predicate(series[ok])
-    if weights is None:
-        return hit.mean() * 100
-    return weights[ok][hit].sum() / weights[ok].sum() * 100
-
-
-def share_negative(series, weights=None):
-    """Percent of occupations (or of workers, with weights) whose value is negative."""
-    return share_where(series, lambda s: s < 0, weights)
-
-
-def region_quantile(frame, column, q, by_worker):
-    if by_worker:
-        return weighted_quantile(frame[column], frame["employment_level"], q)
-    return frame[column].quantile(q)
-
-
-def regional_bar(us_val, fl_val, title, yaxis_title, fmt="{:.1f}"):
-    fig = go.Figure(
-        go.Bar(
-            x=["National (US)", "Florida"],
-            y=[us_val, fl_val],
-            marker_color=["#4a90d9", "#e07b39"],
-            text=[fmt.format(us_val), fmt.format(fl_val)],
-            textposition="outside",
-        )
-    )
-    fig.update_layout(
-        title=dict(text=title, font=dict(size=13)),
-        yaxis_title=yaxis_title,
-        margin=dict(t=60, l=50, r=20),
-        showlegend=False,
-    )
-    return fig
-
-
-def regional_bar_with_iqr(us_frame, fl_frame, column, title, yaxis_title, by_worker=False):
-    # Median bar with whiskers spanning the 25th-75th percentile (IQR). The
-    # whiskers show how widely occupations vary around a median that can sit
-    # near zero. They stop at the IQR rather than the full range because a few
-    # small occupations swing from about -82% to +300% from survey sampling
-    # noise, which would stretch the axis until the IQR was unreadable.
-    us_med, us_q1, us_q3 = (region_quantile(us_frame, column, q, by_worker) for q in (0.5, 0.25, 0.75))
-    fl_med, fl_q1, fl_q3 = (region_quantile(fl_frame, column, q, by_worker) for q in (0.5, 0.25, 0.75))
-    fig = go.Figure(
-        go.Bar(
-            x=["National (US)", "Florida"],
-            y=[us_med, fl_med],
-            marker_color=["#4a90d9", "#e07b39"],
-            text=[f"{us_med:+.1f}%", f"{fl_med:+.1f}%"],
-            textposition="outside",
-            error_y=dict(
-                type="data",
-                symmetric=False,
-                array=[us_q3 - us_med, fl_q3 - fl_med],
-                arrayminus=[us_med - us_q1, fl_med - fl_q1],
-                visible=True,
-                color="#555",
-                thickness=1.5,
-                width=6,
-            ),
-        )
-    )
-    fig.update_layout(
-        title=dict(text=title, font=dict(size=13)),
-        yaxis_title=yaxis_title,
-        margin=dict(t=60, l=50, r=20),
-        showlegend=False,
-    )
-    return fig
-
-
-@app.callback(
-    Output("regional-employment-growth", "figure"),
-    Output("regional-wage-level", "figure"),
-    Output("regional-wage-decline-prevalence", "figure"),
-    Output("regional-real-wage-decline-prevalence", "figure"),
-    Output("regional-contraction-prevalence", "figure"),
-    Output("regional-job-openings", "figure"),
-    Input("main-tabs", "value"),
-    Input("regional-weighting", "value"),
-)
-def update_regional_tab(_tab, weighting="occupation"):
-    by_worker = weighting == "worker"
-    unit = "worker" if by_worker else "occupation"
-    w = (lambda frame: frame["employment_level"]) if by_worker else (lambda frame: None)
-    latest_year = df["year"].max()
-    latest = df[df["year"] == latest_year]
-
-    # Restrict to occ_codes present in both regions for a fair comparison.
-    common_codes = set(latest[latest["region"] == "US"]["occ_code"]) & set(latest[latest["region"] == "FL"]["occ_code"])
-    latest = latest[latest["occ_code"].isin(common_codes)]
-    us, fl = latest[latest["region"] == "US"], latest[latest["region"] == "FL"]
-
-    emp_growth_fig = regional_bar_with_iqr(
-        us, fl, "employment_change_yoy_pct",
-        f"Employment growth rate, {latest_year} (median {unit}, IQR whiskers)",
-        "% change",
-        by_worker,
-    )
-    wage_level_fig = regional_bar(
-        region_quantile(us, "wage_annual_mean", 0.5, by_worker),
-        region_quantile(fl, "wage_annual_mean", 0.5, by_worker),
-        f"Median annual mean wage, {latest_year} (nominal, median {unit})",
-        "$",
-        "${:,.0f}",
-    )
-    share_label = "% of workers" if by_worker else "% of occupations"
-    lead = "Workers in occupations with" if by_worker else "Occupations with"
-    wage_decline_fig = regional_bar(
-        share_negative(us["wage_growth_yoy_pct"], w(us)),
-        share_negative(fl["wage_growth_yoy_pct"], w(fl)),
-        f"{lead} nominal wage decline (YoY)",
-        share_label,
-        "{:.0f}%",
-    )
-    real_wage_decline_fig = regional_bar(
-        share_negative(us["real_wage_growth_yoy_pct"], w(us)),
-        share_negative(fl["real_wage_growth_yoy_pct"], w(fl)),
-        f"{lead} real wage decline (after CPI)" if by_worker else "Occupations with real wage decline (YoY, after CPI)",
-        share_label,
-        "{:.0f}%",
-    )
-    contraction_fig = regional_bar(
-        share_where(us["contraction_flag_12mo"], lambda s: s == 1, w(us)),
-        share_where(fl["contraction_flag_12mo"], lambda s: s == 1, w(fl)),
-        "Workers in contracting occupations (>2% YoY)" if by_worker else "Contracting occupations (>2% YoY decline)",
-        share_label,
-        "{:.0f}%",
-    )
-    openings_fig = regional_bar(
-        us["jolts_region_openings_rate"].iloc[0],
-        fl["jolts_region_openings_rate"].iloc[0],
-        f"Job openings rate, {latest_year} (JOLTS total nonfarm, annual avg.)",
-        "% rate",
-        "{:.1f}%",
-    )
-    return emp_growth_fig, wage_level_fig, wage_decline_fig, real_wage_decline_fig, contraction_fig, openings_fig
 
 
 def movers_table(rows):
@@ -623,11 +421,11 @@ if industry_df is not None:
         return sector_jolts_cards(naics_code, latest_year), scatter_fig, movers_table(top_contracting), movers_table(top_growth)
 
 
-def shock_for(occ_code, region):
+def shock_for(occ_code):
     """(response in percentage points, source) for the 2020 tab, or None if unavailable."""
-    if shock_response is None or (region, occ_code) not in shock_response.index:
+    if shock_response is None or occ_code not in shock_response.index:
         return None
-    row = shock_response.loc[(region, occ_code)]
+    row = shock_response.loc[occ_code]
     if pd.isna(row["response_pct"]):
         return None
     return float(row["response_pct"]), row["source"]
@@ -649,13 +447,12 @@ def response_table(rows):
     )
 
 
-def own_response_rows(region):
+def own_response_rows():
     """Occupations whose own (not group) 2020 response is reliable, with their latest employment."""
     if shock_response is None:
         return pd.DataFrame(columns=["occ_title", "employment_level", "response_pct"])
-    own = shock_response.xs(region, level="region")
-    own = own[own["source"] == "occupation"]
-    latest = df[(df["region"] == region) & (df["year"] == LATEST_YEAR)].set_index("occ_code")
+    own = shock_response[shock_response["source"] == "occupation"]
+    latest = df[df["year"] == LATEST_YEAR].set_index("occ_code")
     rows = own.join(latest[["occ_title", "employment_level"]], how="inner").reset_index()
     # "All Other" residual categories don't describe a single job, so they are left out of the lists
     rows = rows[~rows["occ_title"].str.contains("All Other", regex=False)]
@@ -668,24 +465,23 @@ def own_response_rows(region):
     Output("shock-hardest", "children"),
     Output("shock-resilient", "children"),
     Input("shock-occ-dropdown", "value"),
-    Input("shock-region-toggle", "value"),
 )
-def update_shock_tab(occ_code, region):
-    rows = own_response_rows(region)
+def update_shock_tab(occ_code):
+    rows = own_response_rows()
     hardest = response_table(rows.nsmallest(10, "response_pct"))
     resilient = response_table(rows.nlargest(10, "response_pct"))
 
-    sub = df[(df["occ_code"] == occ_code) & (df["region"] == region)].sort_values("year").set_index("year")["employment_level"]
+    sub = df[df["occ_code"] == occ_code].sort_values("year").set_index("year")["employment_level"]
     if sub.empty or pd.isna(sub.get(BASE_YEAR)) or pd.isna(sub.get(BASE_YEAR + 1)):
         empty_fig = go.Figure()
-        empty_fig.update_layout(title="No 2019/2020 data for this occupation in the selected region")
+        empty_fig.update_layout(title="No 2019/2020 data for this occupation")
         return [kpi_card("No data", "--", f"needs employment in the {BASE_YEAR} and {BASE_YEAR + 1} releases")], empty_fig, hardest, resilient
 
     base = sub[BASE_YEAR]
     change_2020 = (sub[BASE_YEAR + 1] / base - 1) * 100
     latest = sub.get(LATEST_YEAR)
     recovery = (latest / base - 1) * 100 if pd.notna(latest) else None
-    shock = shock_for(occ_code, region)
+    shock = shock_for(occ_code)
 
     kpis = [
         kpi_card(f"Employment, {BASE_YEAR} release", f"{base:,.0f}"),
@@ -702,13 +498,13 @@ def update_shock_tab(occ_code, region):
     index = sub.dropna() / base * 100
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=index.index, y=index.values, mode="lines+markers", name="This occupation"))
-    totals, n_codes = BALANCED_TOTALS[region]
+    totals, n_codes = BALANCED_TOTALS
     fig.add_trace(go.Scatter(x=totals.index, y=totals.values, mode="lines", name=f"All occupations present in every release ({n_codes})",
                              line=dict(dash="dot", color="#888")))
     fig.add_hline(y=100, line_color="#ccc")
     fig.add_vline(x=BASE_YEAR + 1, line_color="#e07b39", line_dash="dash")
     fig.update_layout(
-        title=f"Employment, {BASE_YEAR} release = 100 — {df.loc[df['occ_code'] == occ_code, 'occ_title'].iloc[0]} ({region})",
+        title=f"Employment, {BASE_YEAR} release = 100 — {df.loc[df['occ_code'] == occ_code, 'occ_title'].iloc[0]}",
         yaxis_title=f"Index ({BASE_YEAR} = 100)",
         margin=dict(t=70),
         legend=dict(orientation="h", y=1.1, x=0),

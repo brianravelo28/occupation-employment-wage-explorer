@@ -11,14 +11,14 @@ from conftest import PROCESSED, ROOT
 
 def test_occupation_panel_has_one_row_per_key_and_every_year(occupation_features):
     f = occupation_features
-    assert not f.duplicated(["year", "region", "occ_code"]).any()
+    assert not f.duplicated(["year", "occ_code"]).any()
     assert sorted(f["year"].unique()) == OEWS_YEARS
-    assert set(f["region"]) == {"US", "FL"}
+    assert "region" not in f.columns          # national data only
     assert (f["employment_level"].dropna() > 0).all()
 
 
 def test_features_contain_the_panel_unchanged(occupation_features):
-    keys = ["year", "region", "occ_code"]
+    keys = ["year", "occ_code"]
     panel = pd.read_csv(PROCESSED / "oews_occupation_panel.csv").sort_values(keys).reset_index(drop=True)
     feats = occupation_features.sort_values(keys).reset_index(drop=True)
     assert feats[keys].equals(panel[keys])
@@ -38,10 +38,9 @@ def test_jolts_panel_shape_and_ranges():
     # A rate is a percent of employment. The genuine April 2020 spikes (layoffs and separations
     # in leisure & hospitality reached 30%+) are the largest values, so 40 is a sanity ceiling, not a trim.
     assert j["rate"].between(0, 40).all()
-    assert set(j["region"]) == {"US", "FL"}
-    assert set(j[j["region"] == "FL"]["industry_code"]) == {"000000"}      # BLS publishes no Florida industry detail
-    assert j[j["region"] == "US"]["industry_code"].nunique() == 16
-    assert not j.duplicated(["region", "industry_code", "data_element", "year", "month"]).any()
+    assert "region" not in j.columns
+    assert j["industry_code"].nunique() == 16
+    assert not j.duplicated(["industry_code", "data_element", "year", "month"]).any()
 
 
 def test_every_oews_year_has_a_may_cpi_value():

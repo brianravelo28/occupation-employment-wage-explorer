@@ -8,12 +8,11 @@ Also tracked: `jolts_industry_panel.csv` and `cpi_monthly.csv` (BLS API pulls, b
 
 ## `oews_occupation_panel.csv`
 
-One row per occupation x region x year. Annual cadence (OEWS reference period is May of each year) — see [METHODOLOGY.md](METHODOLOGY.md) for why this isn't monthly.
+One row per occupation x year, national (US) estimates. Annual cadence (OEWS reference period is May of each year) — see [METHODOLOGY.md](METHODOLOGY.md) for why this isn't monthly.
 
 | Column | Type | Description |
 |---|---|---|
 | `year` | int | Release year, 2015-2025 |
-| `region` | str | `US` (national) or `FL` (Florida as a whole; no metro or county rows) |
 | `occ_code` | str | 6-digit SOC occupation code, e.g. `29-1141` |
 | `occ_title` | str | Occupation name |
 | `employment_level` | float | Estimated employment count |
@@ -23,10 +22,12 @@ One row per occupation x region x year. Annual cadence (OEWS reference period is
 | `wage_annual_median` | float | Median annual wage ($) |
 | `wage_annual_pct10` | float | 10th percentile annual wage ($) |
 | `wage_annual_pct90` | float | 90th percentile annual wage ($) |
+| `employment_prse` | float | BLS's percent relative standard error of `employment_level` (a sampling-error measure, as a percent of the estimate; 2.2% median). Occupation table only |
+| `wage_annual_mean_prse` | float | Same, for `wage_annual_mean` (0.8% median). BLS publishes no such error for medians or percentiles. Occupation table only |
 
-Source: `data/fetch_oews.py`, parsing BLS's annual `oesm{YY}all.zip` archives. Rows are filtered to `O_GROUP == "detailed"` (not aggregated major/minor/broad groups) and `NAICS == "000000"` (cross-industry total, not a specific sector). 17,587 rows; 789–831 distinct occupation codes per year.
+Source: `data/fetch_oews.py`, parsing BLS's annual archives: the recalculated "research estimates" (`oes_mb3_{year}a.zip`) for 2015–2020 and `oesm{YY}all.zip` for 2021–2025, so every year uses the same estimation method (see [METHODOLOGY.md](METHODOLOGY.md#data-sources-and-constraints)). Rows are filtered to `AREA_TYPE == 1` (national), `O_GROUP == "detailed"` (not aggregated major/minor/broad groups) and `NAICS == "000000"` (cross-industry total, not a specific sector). 8,988 rows; 789–831 distinct occupation codes per year.
 
-**Nulls:** BLS marks suppressed or out-of-range estimates with `*` / `#` strings, which the parser coerces to null. Share of nulls per column (all rows): `employment_level` 1.6%, `wage_annual_mean` 1.0%, `wage_annual_median` 2.1%, `wage_hourly_mean` 7.7%, `wage_hourly_median` 8.7%, `wage_annual_pct90` 4.8% (`wage_annual_pct10` 1.0%). The missingness is not random: hourly columns are null mainly for occupations BLS reports as annual salary only (postsecondary teachers, legislators, school administrators — rows with a null `wage_hourly_mean` have a median annual mean wage of $78,120 vs. $50,970 for the rest), and `wage_annual_pct90` is null for the very top earners (median annual mean wage $172,320 vs. $51,560; e.g. Cardiologists, Pediatric Surgeons). Analyses on those columns silently drop higher-paid occupations. Growth features are also null wherever the occupation code is absent from the comparison year (SOC code revisions mean not every occupation has a continuous 11-year history).
+**Nulls:** BLS marks suppressed or out-of-range estimates with `*` / `#` strings, which the parser coerces to null. Share of nulls per column (all rows): `employment_level` 0.0% (four values), `wage_annual_mean` 0.6%, `wage_annual_median` 1.7%, `wage_hourly_mean` 7.2%, `wage_hourly_median` 8.4%, `wage_annual_pct90` 4.9% (`wage_annual_pct10` 0.6%; `employment_prse` 0.1% and `wage_annual_mean_prse` 0.0%). The missingness is not random: hourly columns are null mainly for occupations BLS reports as annual salary only (postsecondary teachers, legislators, school administrators — rows with a null `wage_hourly_mean` have a median annual mean wage of $83,565 vs. $53,680 for the rest), and `wage_annual_pct90` is null for the very top earners (median annual mean wage $171,520 vs. $54,250; e.g. Chief Executives, Marketing Managers). Analyses on those columns silently drop higher-paid occupations. Growth features are also null wherever the occupation code is absent from the comparison year (SOC code revisions mean not every occupation has a continuous 11-year history).
 
 ## `oews_occupation_features.csv`
 
@@ -49,16 +50,15 @@ Added by `src/build_macro_features.py` (CPI and JOLTS; see [METHODOLOGY.md](METH
 | `wage_annual_mean_real` | float | `wage_annual_mean` in latest-release-year (2025) dollars, deflated with May CPI-U |
 | `real_wage_growth_yoy_pct` | float | YoY change in the real wage (%); null wherever `wage_growth_yoy_pct` is null |
 | `purchasing_power_loss_flag` | Int64 (nullable) | 1 if the nominal wage rose but the real wage fell, else 0 |
-| `jolts_exposure_openings_rate` | float | Job openings rate (%), annual average, of the occupation's industries weighted by its national employment in each sector; Florida rows use the same national industry rates |
+| `jolts_exposure_openings_rate` | float | Job openings rate (%), annual average, of the occupation's industries weighted by its employment in each sector |
 | `jolts_exposure_quits_rate` | float | Same, quits rate |
 | `jolts_exposure_layoffs_rate` | float | Same, layoffs and discharges rate |
-| `jolts_region_openings_rate` | float | Total-nonfarm job openings rate for the row's own region (US, or Florida) |
 
-JOLTS columns are null for the 20 rows whose occupation has no employment in any JOLTS-covered sector.
+JOLTS columns are null for the 18 rows whose occupation has no employment in any JOLTS-covered sector.
 
 ## `jolts_industry_panel.csv`
 
-Monthly JOLTS rates (11,860 rows), from `data/fetch_jolts.py`: `year`, `month`, `region` (`US` or `FL`), `industry_code` (JOLTS industry code; string), `industry_name`, `data_element` (job openings, hires, total separations, quits, or layoffs and discharges rate) and `rate` (%). US has 16 industries, January 2015 to August 2026; Florida has total nonfarm only (`000000`), January 2015 to December 2025. Seasonally adjusted.
+Monthly national JOLTS rates (11,200 rows), from `data/fetch_jolts.py`: `year`, `month`, `industry_code` (JOLTS industry code; string), `industry_name`, `data_element` (job openings, hires, total separations, quits, or layoffs and discharges rate) and `rate` (%). 16 industries, January 2015 to August 2026. Seasonally adjusted.
 
 ## `cpi_monthly.csv`
 
@@ -75,15 +75,14 @@ Same structure as above, but national-level only, broken out by industry sector 
 
 The features file also has `wage_annual_mean_real`, `real_wage_growth_yoy_pct` and `purchasing_power_loss_flag` (same definitions as above) and `jolts_openings_rate`, `jolts_quits_rate` and `jolts_layoffs_rate`: the national annual-average JOLTS rates for the sector's closest JOLTS industry (null for sector `11`, agriculture, which JOLTS doesn't cover).
 
-92,104 rows: 20 sectors × 11 years, with 143–641 detailed occupations present per sector in 2025 (about 426 on average) — most occupations don't appear in most sectors, so this is far smaller than 20 × ~800 × 10. About 8,200–8,600 rows per year (8,527 in 2025). Sector titles aren't stable across releases: NAICS `99` (government) carries four different `naics_title` strings across the 11 years, so group on `naics`, not `naics_title` (the dashboard uses the most recent year's title). State-level industry breakdowns are excluded — OEWS suppresses too many state x sector x detailed-occupation cells to build a reliable Florida-specific version.
+92,104 rows: 20 sectors × 11 years, with 143–641 detailed occupations present per sector in 2025 (about 426 on average) — most occupations don't appear in most sectors, so this is far smaller than 20 × ~800 × 10. About 8,200–8,600 rows per year (8,527 in 2025). Sector titles aren't stable across releases: NAICS `99` (government) carries four different `naics_title` strings across the 11 years, so group on `naics`, not `naics_title` (the dashboard uses the most recent year's title). State-level industry breakdowns are excluded: OEWS suppresses too many state x sector x detailed-occupation cells to build a reliable one.
 
 ## `shock_2020_response.csv`
 
-Each occupation's observed employment response to the 2020 shock, by region (built by `src/build_shock_replay.py`; see [METHODOLOGY.md](METHODOLOGY.md#2020-shock-and-recovery)).
+Each occupation's observed employment response to the 2020 shock (built by `src/build_shock_replay.py`; see [METHODOLOGY.md](METHODOLOGY.md#2020-shock-and-recovery)).
 
 | Column | Type | Description |
 |---|---|---|
-| `region` | str | `US` or `FL` |
 | `occ_code` | str | 6-digit SOC occupation code |
 | `response_pct` | float | Percentage points: the occupation's employment change in the 2020 release minus its average change over the 2016–2019 releases. Null where `source` is `none` |
 | `source` | str | `occupation` (the occupation's own change; it had 10,000+ employees in both 2019 and 2020 and at least two pre-2020 changes), `group` (its SOC major group's response instead) or `none` (no data for either) |

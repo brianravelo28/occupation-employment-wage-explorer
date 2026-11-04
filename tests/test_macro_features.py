@@ -49,11 +49,11 @@ def test_mapped_jolts_industries_are_ones_the_fetcher_pulls():
     assert set(bmf.SECTOR_TO_JOLTS.values()) <= set(JOLTS_INDUSTRY_SECTORS)
 
 
-def jolts_stub(region, year=2020):
-    """Annual JOLTS rates as annual_jolts() returns them: retail 4, food service 8, total 5 (+1 in Florida);
+def jolts_stub(year=2020):
+    """Annual JOLTS rates as annual_jolts() returns them: retail 4, food service 8;
     quits and layoffs are half the openings rate."""
     rows = []
-    for code, rate in (("440000", 4.0), ("720000", 8.0), ("000000", 5.0 + (1.0 if region == "FL" else 0.0))):
+    for code, rate in (("440000", 4.0), ("720000", 8.0)):
         for element, short in bmf.JOLTS_ELEMENTS.items():
             rows.append({"year": year, "industry_code": code, "data_element": element,
                          "rate": rate * (1 if short == "openings" else 0.5), "suffix": short})
@@ -62,7 +62,7 @@ def jolts_stub(region, year=2020):
 
 @pytest.fixture
 def stub_jolts(monkeypatch):
-    monkeypatch.setattr(bmf, "annual_jolts", lambda region="US": jolts_stub(region))
+    monkeypatch.setattr(bmf, "annual_jolts", lambda: jolts_stub())
 
 
 def test_occupation_exposure_is_the_employment_weighted_industry_average(stub_jolts):
@@ -71,22 +71,13 @@ def test_occupation_exposure_is_the_employment_weighted_industry_average(stub_jo
         (2020, "11", "Y", 500.0),                                     # agriculture: no JOLTS
         (2020, "44-45", "Z", 50.0), (2020, "72", "Z", np.nan),       # missing employment is ignored
     ], columns=["year", "naics", "occ_code", "employment_level"])
-    occ = pd.DataFrame({"year": 2020, "region": ["US", "FL", "US", "US"], "occ_code": ["X", "X", "Y", "Z"]})
+    occ = pd.DataFrame({"year": 2020, "occ_code": ["X", "Y", "Z"]})
     out = bmf.add_occupation_jolts(occ, industry)
     assert len(out) == len(occ)
     assert out.loc[0, "jolts_exposure_openings_rate"] == pytest.approx(0.75 * 4 + 0.25 * 8)
     assert out.loc[0, "jolts_exposure_quits_rate"] == pytest.approx((0.75 * 4 + 0.25 * 8) / 2)
-    assert out.loc[1, "jolts_exposure_openings_rate"] == pytest.approx(out.loc[0, "jolts_exposure_openings_rate"])  # FL uses national industry rates
-    assert np.isnan(out.loc[2, "jolts_exposure_openings_rate"])
-    assert out.loc[3, "jolts_exposure_openings_rate"] == pytest.approx(4.0)
-
-
-def test_region_total_uses_the_regions_own_series(stub_jolts):
-    industry = pd.DataFrame([(2020, "44-45", "X", 10.0)], columns=["year", "naics", "occ_code", "employment_level"])
-    occ = pd.DataFrame({"year": 2020, "region": ["US", "FL"], "occ_code": "X"})
-    out = bmf.add_occupation_jolts(occ, industry).set_index("region")
-    assert out.loc["US", "jolts_region_openings_rate"] == pytest.approx(5.0)
-    assert out.loc["FL", "jolts_region_openings_rate"] == pytest.approx(6.0)
+    assert np.isnan(out.loc[1, "jolts_exposure_openings_rate"])
+    assert out.loc[2, "jolts_exposure_openings_rate"] == pytest.approx(4.0)
 
 
 def test_sector_rows_get_their_sectors_rates(stub_jolts):

@@ -20,10 +20,10 @@ CONTRACTION_THRESHOLD_PCT = -2.0
 
 def load_panel() -> pd.DataFrame:
     df = pd.read_csv(DATA_PROCESSED / "oews_occupation_panel.csv")
-    return df.sort_values(["region", "occ_code", "year"]).reset_index(drop=True)
+    return df.sort_values(["occ_code", "year"]).reset_index(drop=True)
 
 
-KEYS = ["region", "occ_code"]
+KEYS = ["occ_code"]
 
 
 def lagged_values(df: pd.DataFrame, keys: list, cols: list, lag: int) -> pd.DataFrame:
@@ -81,14 +81,13 @@ if __name__ == "__main__":
     print(f"  jolts_exposure_*_rate (no employment in a JOLTS sector): {featured['jolts_exposure_openings_rate'].isna().sum():>3,}")
 
     latest = featured[featured["year"] == featured["year"].max()]
-    print(f"\n{latest['year'].iloc[0]} snapshot ({len(latest)} occupation-region rows):")
+    print(f"\n{latest['year'].iloc[0]} snapshot ({len(latest)} occupations):")
     print("  with YoY growth computed:", latest["employment_change_yoy_pct"].notna().sum())
     print("  with 5yr CAGR computed:  ", latest["employment_change_5yr_cagr"].notna().sum())
     print("  contraction-flagged:     ", (latest["contraction_flag_12mo"] == 1).sum())
 
     top_contracting = (
-        latest[latest["region"] == "US"]
-        .nsmallest(10, "employment_change_yoy_pct")
+        latest.nsmallest(10, "employment_change_yoy_pct")
         [["occ_title", "employment_level", "employment_change_yoy_pct", "wage_growth_yoy_pct"]]
     )
     print("\nTop 10 contracting US occupations (most recent year):")

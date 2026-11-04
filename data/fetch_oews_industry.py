@@ -11,7 +11,7 @@ code strings themselves ('11', '44-45', etc.) are standardized and stable
 across years regardless of that column-naming drift.
 
 National-level only: state x sector x detailed-occupation combinations are
-too sparse/suppressed in OEWS to build a reliable FL-specific sector panel.
+too sparse and suppressed in OEWS to build a reliable state-level sector panel.
 """
 import sys
 from pathlib import Path
@@ -20,7 +20,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from config import DATA_PROCESSED, OEWS_SECTOR_NAICS_CODES, OEWS_YEARS
-from fetch_oews import NUMERIC_COLUMNS, load_year_raw
+from fetch_oews import COLUMN_RENAMES, NUMERIC_COLUMNS, load_year_raw
 
 NATIONAL_AREA_TYPE = 1
 
@@ -43,17 +43,7 @@ def build_industry_panel(years=OEWS_YEARS) -> pd.DataFrame:
     for year in years:
         print(f"Parsing OEWS industry-sector data {year} ...")
         frames.append(parse_year_industry(year))
-    panel = pd.concat(frames, ignore_index=True)
-    panel = panel.rename(columns={
-        "tot_emp": "employment_level",
-        "h_mean": "wage_hourly_mean",
-        "a_mean": "wage_annual_mean",
-        "h_median": "wage_hourly_median",
-        "a_median": "wage_annual_median",
-        "a_pct10": "wage_annual_pct10",
-        "a_pct90": "wage_annual_pct90",
-    })
-    return panel
+    return pd.concat(frames, ignore_index=True).rename(columns=COLUMN_RENAMES)
 
 
 if __name__ == "__main__":

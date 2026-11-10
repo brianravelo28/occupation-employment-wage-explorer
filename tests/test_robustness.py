@@ -83,3 +83,41 @@ def test_larger_occupations_have_smaller_relative_errors(occupation_features):
 
 def test_the_industry_tables_carry_no_standard_errors(industry_features):
     assert not [c for c in industry_features.columns if c.endswith("_prse")]
+
+
+# ---- the real-wage-decline shares themselves ------------------------------
+
+def decline_table(rows):
+    return pd.DataFrame(rows, columns=["year", "occ_code", "employment_level", "real_wage_growth_yoy_pct"])
+
+
+def test_decline_counts_name_the_denominator_for_each_year():
+    f = decline_table([(2021, "A", 900.0, -2.0), (2021, "B", 100.0, 1.0), (2021, "C", 50.0, np.nan), (2022, "A", 900.0, 1.0)])
+    out = robustness.real_decline_counts(f)
+    assert out.loc[2021, "n"] == 2 and out.loc[2021, "fell"] == 1 and out.loc[2021, "share"] == 50.0   # C has no change: not counted
+    assert out.loc[2022, "n"] == 1 and out.loc[2022, "share"] == 0.0
+
+
+def test_job_share_weights_occupations_by_employment():
+    f = decline_table([(2021, "A", 900.0, -2.0), (2021, "B", 100.0, 1.0)])
+    assert robustness.real_decline_job_share(f)[2021] == pytest.approx(90.0)        # 50% of occupations, 90% of jobs
+
+
+def test_sampling_error_separates_clear_declines_from_ones_it_could_reverse():
+    cpi = pd.DataFrame({"year": [2020, 2021], "month": [5, 5], "cpi": [100.0, 105.0]})
+    rows = []
+    for code, wage_now in (("clear", 103.0), ("close", 104.9)):          # real change about -1.9% and -0.1%
+        rows += [(2020, code, 100.0, 0.5), (2021, code, wage_now, 0.5)]
+    f = pd.DataFrame(rows, columns=["year", "occ_code", "wage_annual_mean", "wage_annual_mean_prse"])
+    out = robustness.real_decline_with_sampling_error(f, cpi).loc[2021]
+    assert out["n"] == 2 and out["observed"] == 100.0                      # both fell on the point estimates
+    assert out["beyond_2se"] == 50.0                                       # only the clear one is more than 2 SE below zero
+    assert 70 < out["expected"] < 80                                       # (0.997 + 0.56) / 2
+
+
+def test_the_committed_headline_shares_match_their_counts(occupation_features):
+    counts = robustness.real_decline_counts(occupation_features)
+    assert counts.loc[2021, "n"] == 755 and counts.loc[2022, "n"] == 824
+    assert (counts.loc[2016:2025, "fell"] / counts.loc[2016:2025, "n"] * 100).round(6).equals(counts.loc[2016:2025, "share"].round(6))
+    jobs = robustness.real_decline_job_share(occupation_features)
+    assert jobs[2021] > 75 and jobs[2022] > 80                              # the worker view agrees with the occupation view

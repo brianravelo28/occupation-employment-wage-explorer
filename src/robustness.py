@@ -10,8 +10,15 @@ Two robustness checks on the headline figures, both computed from the processed 
    calculation, with the same size rule, to years with no shock, which shows how big a
    "response" is from sampling noise and ordinary variation alone.
 
-Run `python src/robustness.py` to print both.
+Three further helpers describe the real-wage-decline shares themselves: how many occupations
+each share is taken over (`real_decline_counts`), the same share weighted by employment
+(`real_decline_job_share`), and what the share becomes when each wage estimate carries its
+published sampling error (`real_decline_with_sampling_error`).
+
+Run `python src/robustness.py` to print them.
 """
+from math import erf, sqrt
+
 import numpy as np
 import pandas as pd
 
@@ -31,6 +38,53 @@ def real_decline_shares_by_cpi_month(features: pd.DataFrame, cpi: pd.DataFrame) 
         real = ((1 + features["wage_growth_yoy_pct"] / 100) * (features["year"] - 1).map(series) / features["year"].map(series) - 1) * 100
         out[name] = real.groupby(features["year"]).apply(lambda s: (s.dropna() < 0).mean() * 100)
     return pd.DataFrame(out)
+
+
+def real_decline_counts(features: pd.DataFrame) -> pd.DataFrame:
+    """Per release year: occupations with a real wage change (the denominator of every share) and how many of them fell."""
+    g = features.dropna(subset=["real_wage_growth_yoy_pct"])
+    fell = g["real_wage_growth_yoy_pct"] < 0
+    out = pd.DataFrame({"n": g.groupby("year").size(), "fell": fell.groupby(g["year"]).sum()})
+    out["share"] = out["fell"] / out["n"] * 100
+    return out
+
+
+def real_decline_job_share(features: pd.DataFrame) -> pd.Series:
+    """Per release year: the percent of jobs (employment) in occupations whose real wage fell."""
+    g = features.dropna(subset=["real_wage_growth_yoy_pct", "employment_level"])
+    fell = g["employment_level"].where(g["real_wage_growth_yoy_pct"] < 0, 0.0)
+    return fell.groupby(g["year"]).sum() / g["employment_level"].groupby(g["year"]).sum() * 100
+
+
+def _normal_cdf(x: np.ndarray) -> np.ndarray:
+    return np.array([0.5 * (1 + erf(v / sqrt(2))) for v in x])
+
+
+def real_decline_with_sampling_error(features: pd.DataFrame, cpi: pd.DataFrame) -> pd.DataFrame:
+    """Per release year: the real-decline share if each mean wage carried its published relative standard error.
+
+    The real change is (wage / prior wage) x (May CPI of the prior year / May CPI) - 1. Its standard error combines
+    the two years' relative standard errors as if they were independent. Consecutive releases share four of six panels,
+    so the true error of a change is smaller; this is the conservative end.
+
+    Columns: `n`; `observed` (percent with a real decline); `expected` (the average probability of a decline,
+    treating the estimate as normal around the true value); `beyond_2se` (percent whose decline is more than two
+    standard errors from zero)."""
+    may = cpi[cpi["month"] == 5].set_index("year")["cpi"]
+    cur = features[["year", "occ_code", "wage_annual_mean", "wage_annual_mean_prse"]]
+    prev = cur.assign(year=cur["year"] + 1).rename(columns={"wage_annual_mean": "w0", "wage_annual_mean_prse": "r0"})
+    m = cur.merge(prev, on=["year", "occ_code"]).dropna()
+    k = (m["year"] - 1).map(may) / m["year"].map(may)
+    ratio = m["wage_annual_mean"] / m["w0"]
+    real = ratio * k - 1
+    se = ratio * k * np.sqrt((m["wage_annual_mean_prse"] / 100) ** 2 + (m["r0"] / 100) ** 2)
+    ok = se > 0
+    m, real, se = m[ok], real[ok], se[ok]
+    z = real / se
+    out = pd.DataFrame({"year": m["year"], "fell": real < 0, "p": _normal_cdf((-z).to_numpy()), "beyond": z < -2})
+    g = out.groupby("year")
+    return pd.DataFrame({"n": g.size(), "observed": g["fell"].mean() * 100, "expected": g["p"].mean() * 100,
+                         "beyond_2se": g["beyond"].mean() * 100})
 
 
 def placebo_responses(features: pd.DataFrame, years=PLACEBO_YEARS) -> pd.DataFrame:
@@ -69,6 +123,12 @@ if __name__ == "__main__":
     shock = pd.read_csv(DATA_PROCESSED / "shock_2020_response.csv")
     print("Share of occupations with a real wage decline (%), by deflator:")
     print(real_decline_shares_by_cpi_month(features, cpi).loc[2016:2025].round(0).to_string())
+    print("\nOccupations with a real wage change, and how many fell:")
+    print(real_decline_counts(features).loc[2016:2025].round(1).to_string())
+    print("\nPercent of jobs in occupations whose real wage fell:")
+    print(real_decline_job_share(features).loc[2016:2025].round(1).to_string())
+    print("\nShare with a real decline, allowing for each wage estimate's sampling error:")
+    print(real_decline_with_sampling_error(features, cpi).loc[2016:2025].round(1).to_string())
     print("\nPlacebo responses vs. the 2020 responses:")
     for k, v in placebo_summary(features, shock).items():
         print(f"  {k}: {v:.1f}" if isinstance(v, float) else f"  {k}: {v}")

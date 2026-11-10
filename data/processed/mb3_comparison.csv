@@ -1,0 +1,61 @@
+measure,year,original_method,mb3,agreement
+real wage decline: share of occupations (%),2016.0,19.11764705882353,30.88235294117647,
+real wage decline: share of occupations (%),2017.0,40.37735849056604,50.81761006289308,
+real wage decline: share of occupations (%),2018.0,63.18407960199005,62.56218905472637,
+real wage decline: share of occupations (%),2019.0,33.52192362093352,37.1994342291372,
+real wage decline: share of occupations (%),2020.0,6.8789808917197455,7.142857142857142,
+real wage decline: share of occupations (%),2021.0,80.52980132450331,81.98675496688742,
+real wage decline: share of occupations (%),2022.0,85.43689320388349,85.43689320388349,
+real wage decline: share of occupations (%),2023.0,31.87878787878788,31.87878787878788,
+real wage decline: share of occupations (%),2024.0,39.58837772397095,39.58837772397095,
+real wage decline: share of occupations (%),2025.0,38.90909090909091,38.90909090909091,
+"employment change in the release, summed over occupations (%)",2016.0,1.8153155090234518,1.8404304422826812,
+"employment change in the release, summed over occupations (%)",2017.0,1.583254241381038,1.813011601350678,
+"employment change in the release, summed over occupations (%)",2018.0,1.5311552033699716,1.5098450973855204,
+"employment change in the release, summed over occupations (%)",2019.0,1.3288058211643916,1.404157308057452,
+"employment change in the release, summed over occupations (%)",2020.0,-5.294712837887294,-5.341581695697717,
+"employment change in the release, summed over occupations (%)",2021.0,0.9441792784912861,1.037642720435894,
+"employment change in the release, summed over occupations (%)",2022.0,4.968584967091538,4.968584967091538,
+"employment change in the release, summed over occupations (%)",2023.0,2.6830621356791706,2.6830621356791706,
+"employment change in the release, summed over occupations (%)",2024.0,1.5364381263822224,1.5364381263822224,
+"employment change in the release, summed over occupations (%)",2025.0,0.8575841988368138,0.8575841988368138,
+fixed set: occupations,,699.0,696.0,
+fixed set: 2025 employment as % of 2019,,103.28160534549863,103.26975890527008,
+real wage change 2015-2025: median occupation (%),,0.8461530588626864,1.0001437177336259,
+real wage change 2015-2025: occupations ended lower (%),,46.14305750350631,44.88078541374474,
+real wage change 2015-2025: occupations compared,,713.0,713.0,
+"2020 response, Waiters and Waitresses (points)",2020.0,-25.342531302336017,-29.892525273368364,
+"2020 response, Retail Salespersons (points)",2020.0,-13.615161024199772,-14.875158138015484,
+"2020 response, Cashiers (points)",2020.0,-8.173467380547649,-7.731281299071477,
+"2020 response, Registered Nurses (points)",2020.0,-1.9508978170140607,-2.5191633610020547,
+2020 responses: occupations with their own,2020.0,583.0,580.0,
+"employment change, per occupation: correlation between the two series",2016.0,,,0.7005296348812895
+"employment change, per occupation: median absolute difference (points)",2016.0,,,2.600724361857965
+"real wage growth, per occupation: median absolute difference (points)",2016.0,,,1.226109422550481
+"employment change, per occupation: correlation between the two series",2017.0,,,0.5862144613667646
+"employment change, per occupation: median absolute difference (points)",2017.0,,,2.667468912956277
+"real wage growth, per occupation: median absolute difference (points)",2017.0,,,1.0360593910557991
+"employment change, per occupation: correlation between the two series",2018.0,,,0.6044882370070206
+"employment change, per occupation: median absolute difference (points)",2018.0,,,2.635630662896016
+"real wage growth, per occupation: median absolute difference (points)",2018.0,,,1.1089774856234413
+"employment change, per occupation: correlation between the two series",2019.0,,,0.6900030224938655
+"employment change, per occupation: median absolute difference (points)",2019.0,,,2.5412463836109156
+"real wage growth, per occupation: median absolute difference (points)",2019.0,,,1.25319509857591
+"employment change, per occupation: correlation between the two series",2020.0,,,0.7381405045941618
+"employment change, per occupation: median absolute difference (points)",2020.0,,,2.976169817935851
+"real wage growth, per occupation: median absolute difference (points)",2020.0,,,1.279877757230674
+"employment change, per occupation: correlation between the two series",2021.0,,,0.7020315154511036
+"employment change, per occupation: median absolute difference (points)",2021.0,,,4.015162851015013
+"real wage growth, per occupation: median absolute difference (points)",2021.0,,,1.335425265652379
+"employment change, per occupation: correlation between the two series",2022.0,,,1.0
+"employment change, per occupation: median absolute difference (points)",2022.0,,,0.0
+"real wage growth, per occupation: median absolute difference (points)",2022.0,,,0.0
+"employment change, per occupation: correlation between the two series",2023.0,,,0.9999999999999999
+"employment change, per occupation: median absolute difference (points)",2023.0,,,0.0
+"real wage growth, per occupation: median absolute difference (points)",2023.0,,,0.0
+"employment change, per occupation: correlation between the two series",2024.0,,,0.9999999999999999
+"employment change, per occupation: median absolute difference (points)",2024.0,,,0.0
+"real wage growth, per occupation: median absolute difference (points)",2024.0,,,0.0
+"employment change, per occupation: correlation between the two series",2025.0,,,1.0
+"employment change, per occupation: median absolute difference (points)",2025.0,,,0.0
+"real wage growth, per occupation: median absolute difference (points)",2025.0,,,0.0

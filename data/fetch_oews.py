@@ -40,6 +40,7 @@ from config import (
     OEWS_RAW,
     OEWS_YEARS,
 )
+from checksums import check_file, describe
 
 NATIONAL_AREA_TYPE = 1
 
@@ -85,8 +86,10 @@ def _normalize_header(col: str) -> str:
     return col
 
 
-def download_year(year: int) -> "zipfile.ZipFile":
-    if year in OEWS_MB3_YEARS:
+def download_year(year: int, original: bool = False) -> "zipfile.ZipFile":
+    """The archive for a year: the MB3 research estimates for 2015-2020, unless `original` asks for the
+    estimates BLS first published for those years (used only to measure the method change)."""
+    if year in OEWS_MB3_YEARS and not original:
         dest, url = OEWS_MB3_RAW / f"oes_mb3_{year}a.zip", OEWS_MB3_ARCHIVE_URL.format(year=year)
     else:
         yy = f"{year % 100:02d}"
@@ -97,12 +100,14 @@ def download_year(year: int) -> "zipfile.ZipFile":
         resp = requests.get(url, headers={"User-Agent": BLS_USER_AGENT}, timeout=120)
         resp.raise_for_status()
         dest.write_bytes(resp.content)
+    # BLS can replace a published file; say whether this one is the file the tables were built from.
+    print(describe(dest, check_file(dest)))
     return zipfile.ZipFile(dest)
 
 
-def load_year_raw(year: int) -> pd.DataFrame:
+def load_year_raw(year: int, original: bool = False) -> pd.DataFrame:
     """Download (if needed) and return the normalized, full raw OEWS table for a year."""
-    zf = download_year(year)
+    zf = download_year(year, original)
     xlsx_name = next(n for n in zf.namelist() if n.endswith(".xlsx"))
     with zf.open(xlsx_name) as f:
         raw = pd.read_excel(io.BytesIO(f.read()))
@@ -131,19 +136,19 @@ def load_year_raw(year: int) -> pd.DataFrame:
     return df
 
 
-def parse_year(year: int) -> pd.DataFrame:
-    df = load_year_raw(year)
+def parse_year(year: int, original: bool = False) -> pd.DataFrame:
+    df = load_year_raw(year, original)
     # 2015-era files truncate the value to "detail" instead of "detailed"
     df = df[(df["o_group"].isin(["detailed", "detail"])) & (df["naics"].isin(["000000", "0"]))]
     df = df[df["area_type"] == NATIONAL_AREA_TYPE]
     return df[["year", "occ_code", "occ_title"] + NUMERIC_COLUMNS + PRSE_COLUMNS]
 
 
-def build_panel(years=OEWS_YEARS) -> pd.DataFrame:
+def build_panel(years=OEWS_YEARS, original: bool = False) -> pd.DataFrame:
     frames = []
     for year in years:
         print(f"Parsing OEWS {year} ...")
-        frames.append(parse_year(year))
+        frames.append(parse_year(year, original))
     return pd.concat(frames, ignore_index=True).rename(columns=COLUMN_RENAMES)
 
 

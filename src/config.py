@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_RAW = ROOT / "data" / "raw"
 DATA_PROCESSED = ROOT / "data" / "processed"
 OEWS_RAW = DATA_RAW / "oews"
+RAW_CHECKSUMS = ROOT / "data" / "raw_checksums.txt"  # SHA-256 of every raw OEWS archive the tables were built from
 JOLTS_RAW = DATA_RAW / "jolts"
 
 BLS_API_KEY = os.getenv("BLS_API_KEY", "")

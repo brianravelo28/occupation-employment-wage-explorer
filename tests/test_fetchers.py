@@ -103,7 +103,7 @@ def archive_2015(monkeypatch):
         row(99, 1, "722000", "11-1011", "detail ", 400),             # industry cross-tab        -> dropped
         row(99, 1, "000000", "13-1011", "detail ", "**", "#"),       # suppressed markers        -> kept, as nulls
     ])
-    monkeypatch.setattr(fetch_oews, "download_year", lambda year: fake_archive(df))
+    monkeypatch.setattr(fetch_oews, "download_year", lambda year, original=False: fake_archive(df))
 
 
 def test_2015_style_headers_and_labels_parse(archive_2015):
@@ -133,7 +133,7 @@ def test_suppression_markers_become_nulls_not_errors(archive_2015):
 
 def test_a_missing_required_column_fails_loudly(monkeypatch):
     df = pd.DataFrame([row(99, 1, "000000", "11-1011", "detail ", 1)]).drop(columns=["tot_emp"])
-    monkeypatch.setattr(fetch_oews, "download_year", lambda year: fake_archive(df))
+    monkeypatch.setattr(fetch_oews, "download_year", lambda year, original=False: fake_archive(df))
     with pytest.raises(ValueError, match="tot_emp"):
         fetch_oews.load_year_raw(2015)
 

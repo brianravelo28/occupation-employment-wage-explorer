@@ -64,8 +64,26 @@ def compute() -> list:
         "docs/METHODOLOGY.md")
     span = a.pivot(index="occ_code", columns="year", values="wage_annual_mean_real").dropna(subset=[2015, 2025])
     change = (span[2025] / span[2015] - 1) * 100
-    add("real-wage-decline shares quoted in the README",
-        f"in both 2021 ({s[2021]}) and 2022 ({s[2022]}), against {s[2020]} in 2020 and {s[2023]} in 2023", "README.md")
+    counts = robustness.real_decline_counts(a)
+    add("README: real-wage-decline shares and their denominators",
+        f"{s[2021]} ({counts.loc[2021, 'n']} occupations) had a real (inflation-adjusted) wage decline in 2021 and {s[2022]} ({counts.loc[2022, 'n']}) in 2022, against {s[2020]} in 2020 and {s[2023]} in 2023",
+        "README.md")
+    jobs = robustness.real_decline_job_share(a)
+    add("README: share of jobs in occupations with a real decline",
+        f"{jobs[2021]:.0f}% (2021) and {jobs[2022]:.0f}% (2022) of jobs", "README.md")
+    add("occupations with a real wage change, 2021 and 2022",
+        f"{counts.loc[2021, 'n']} of the {per_year[2021]} occupations in the 2021 release had a wage in both 2020 and 2021 and {counts.loc[2022, 'n']} of {per_year[2022]} in 2022",
+        "docs/METHODOLOGY.md")
+    add("median real wage change by year, 2021 and 2022",
+        f"median occupation's real wage changed by {signed(a[a['year'] == 2021]['real_wage_growth_yoy_pct'].median())} in 2021 and {signed(a[a['year'] == 2022]['real_wage_growth_yoy_pct'].median())} in 2022",
+        "docs/METHODOLOGY.md")
+    add("job-weighted real-decline shares",
+        f"{jobs[2021]:.0f}% of jobs in 2021 and {jobs[2022]:.0f}% in 2022", "docs/METHODOLOGY.md")
+    sampling = robustness.real_decline_with_sampling_error(a, cpi)
+    add("sampling-error-adjusted real-decline shares",
+        f"{sampling.loc[2021, 'expected']:.0f}% in 2021 and {sampling.loc[2022, 'expected']:.0f}% in 2022", "docs/METHODOLOGY.md")
+    add("declines more than two standard errors from zero",
+        f"{sampling.loc[2021, 'beyond_2se']:.0f}% of occupations in 2021 and {sampling.loc[2022, 'beyond_2se']:.0f}% in 2022", "docs/METHODOLOGY.md")
     add("median real wage change 2015-2025",f"rose {change.median():.1f}% in total", "docs/METHODOLOGY.md")
     add("share ended lower, and how many occupations", f"{(change < 0).mean() * 100:.0f}% of the {len(change)} occupations", "docs/METHODOLOGY.md")
 
@@ -74,6 +92,8 @@ def compute() -> list:
     for year in (2021, 2022, 2023):
         lo, hi = by_month.loc[year].min(), by_month.loc[year].max()
         add(f"real-wage-decline share across CPI months, {year}", f"{year}: {lo:.0f}–{hi:.0f}%", "docs/METHODOLOGY.md")
+        if year in (2021, 2022):
+            add(f"README: CPI-month range, {year}", f"The {year} share ranges from {lo:.0f}% to {hi:.0f}%" if year == 2021 else f"the 2022 share from {lo:.0f}% to {hi:.0f}%", "README.md")
 
     # ---- 2020 shock and recovery ----
     pairs = a.dropna(subset=["employment_change_yoy_pct", "employment_level"]).copy()
@@ -93,7 +113,7 @@ def compute() -> list:
     present = full.groupby("occ_code")["year"].nunique()
     fixed = full[full["occ_code"].isin(present[present == years].index)].groupby("year")["employment_level"].sum()
     add("fixed set, 2025 as a share of 2019", f"{fixed[2025] / fixed[2019] * 100:.1f}% of its 2019 level", "docs/METHODOLOGY.md")
-    add("README: total change in the 2020 release", f"Total US employment fell {drop:.1f}% in the 2020 release", "README.md")
+    add("README: total change in the 2020 release", f"Employment summed over the occupations fell {drop:.1f}% in the 2020 release", "README.md")
     add("README: fixed set, 2025 as a share of 2019", f"at {fixed[2025] / fixed[2019] * 100:.0f}% of their 2019 employment", "README.md")
     wait, retail, nurse = (abs(resp[titles[titles == t].index[0]]) for t in ("Waiters and Waitresses", "Retail Salespersons", "Registered Nurses"))
     add("README: 2020 responses", f"Waiters and Waitresses fell {wait:.0f} points more, Retail Salespersons {retail:.0f} and Registered Nurses {nurse:.0f}", "README.md")
@@ -106,7 +126,6 @@ def compute() -> list:
     add("placebo response, spread", f"standard deviation of {plc['placebo_sd']:.1f} points", "docs/METHODOLOGY.md")
     add("placebo response, 95% range", f"between {signed(plc['placebo_lo'], suffix='')} and {signed(plc['placebo_hi'], suffix='')} points", "docs/METHODOLOGY.md")
     add("README: placebo range", f"Responses between {signed(plc['placebo_lo'], 0, '')} and {signed(plc['placebo_hi'], 0, '')} points", "README.md")
-    add("README: CPI-month ranges", f"({by_month.loc[2021].min():.0f}–{by_month.loc[2021].max():.0f}% across April to July and the annual average); the 2022 figure holds ({by_month.loc[2022].min():.0f}–{by_month.loc[2022].max():.0f}%)", "README.md")
     add("2020 responses outside the placebo range", f"{plc['share_outside']:.0f}% of the {plc['own_n']} occupations", "docs/METHODOLOGY.md")
 
     # ---- BLS's relative standard errors ----
@@ -114,6 +133,55 @@ def compute() -> list:
     add("median employment RSE", f"median relative standard error of employment is {prse.median():.1f}%", "docs/METHODOLOGY.md")
     add("employment RSE above 10%", f"{(prse > 10).mean() * 100:.0f}% of occupation-year rows have an employment RSE above 10%", "docs/METHODOLOGY.md")
     add("median mean-wage RSE", f"the median for mean wages is {a['wage_annual_mean_prse'].dropna().median():.1f}%", "docs/METHODOLOGY.md")
+
+    # ---- figures the README quotes about the data and the sample questions ----
+    ind = pd.read_csv(DATA_PROCESSED / "oews_industry_features.csv", dtype={"naics": str})
+    jolts = pd.read_csv(DATA_PROCESSED / "jolts_industry_panel.csv")
+    nurses = a[(a["occ_title"] == "Registered Nurses") & (a["year"] == 2025)]["employment_level"].iloc[0]
+    add("README: Registered Nurses employment, 2025", f"{nurses / 1e6:.1f} million jobs in 2025", "README.md")
+    food = ind[ind["naics"] == "72"].set_index(["occ_code", "year"])["employment_level"]
+    both = food.xs(2025, level="year").to_frame("now").join(food.xs(2024, level="year").to_frame("prior"), how="inner")
+    ranked = int(((both["now"] >= 500) & (both["prior"] >= 500)).sum())     # the sector tab's 500-employee floor, in both years
+    add("README: occupations ranked in Accommodation and Food Services", f"{ranked} occupations with at least 500 employees in both years", "README.md")
+    add("README: occupations with their own 2020 response", f"{int((shock['source'] == 'occupation').sum())} occupations have their own response", "README.md")
+    add("README: fixed set size", f"present in every release ({len(present[present == years])})", "README.md")
+    add("README: median real wage, 2015-2025",
+        f"the median occupation's real wage rose {change.median():.1f}%, and {(change < 0).mean() * 100:.0f}% of the {len(change)} occupations present in both years ended lower", "README.md")
+    add("README: industry-sector rows", f"{len(ind):,} occupation × sector × year rows for {ind['naics'].nunique()} industry sectors", "README.md")
+    add("README: JOLTS series", f"{jolts['industry_code'].nunique()} national industries ({jolts.groupby(['industry_code', 'data_element']).ngroups} series)", "README.md")
+    add("README: CPI-U rows", f"{len(cpi)} monthly values", "README.md")
+
+    # ---- how much the estimation method matters (data/processed/mb3_comparison.csv) ----
+    cmp_table = pd.read_csv(DATA_PROCESSED / "mb3_comparison.csv")
+
+    def cmp(measure, year=None, column="mb3"):
+        rows = cmp_table[cmp_table["measure"] == measure]
+        rows = rows[rows["year"] == year] if year is not None else rows[rows["year"].isna()]
+        return float(rows[column].iloc[0])
+
+    shr = "real wage decline: share of occupations (%)"
+    add("method change: early real-wage-decline shares",
+        f"{cmp(shr, 2016):.0f}% (2016) and {cmp(shr, 2017):.0f}% (2017) with MB3, against {cmp(shr, 2016, 'original_method'):.0f}% and {cmp(shr, 2017, 'original_method'):.0f}% with the original files",
+        "docs/METHODOLOGY.md")
+    later = max(abs(cmp(shr, y) - cmp(shr, y, "original_method")) for y in range(2018, 2026))
+    add("method change: later real-wage-decline shares", f"differ by at most {later:.1f} points", "docs/METHODOLOGY.md")
+    add("method change: 2021 real-wage-decline share", f"{cmp(shr, 2021, 'original_method'):.1f}% with the original files and {cmp(shr, 2021):.1f}% with MB3", "docs/METHODOLOGY.md")
+    tot = "employment change in the release, summed over occupations (%)"
+    spread = max(abs(cmp(tot, y) - cmp(tot, y, "original_method")) for y in range(2016, 2026))
+    fx = "fixed set: 2025 employment as % of 2019"
+    add("method change: totals", f"differs by at most {spread:.1f} points in any release", "docs/METHODOLOGY.md")
+    add("method change: fixed set", f"{cmp(fx, None, 'original_method'):.1f}% of its 2019 level with the original files and {cmp(fx):.1f}% with MB3", "docs/METHODOLOGY.md")
+    ec = "employment change, per occupation: median absolute difference (points)"
+    cc = "employment change, per occupation: correlation between the two series"
+    rw = "real wage growth, per occupation: median absolute difference (points)"
+    add("method change: one occupation's 2021 employment change",
+        f"{cmp(ec, 2021, 'agreement'):.1f} points between the two series (correlation {cmp(cc, 2021, 'agreement'):.2f})", "docs/METHODOLOGY.md")
+    add("method change: one occupation's 2021 real wage growth", f"by {cmp(rw, 2021, 'agreement'):.1f} points", "docs/METHODOLOGY.md")
+    for title in ("Waiters and Waitresses", "Registered Nurses"):
+        m = f"2020 response, {title} (points)"
+        add(f"method change: 2020 response, {title}",
+            f"{title} {signed(cmp(m, 2020, 'original_method'), suffix='')} with the original files and {signed(cmp(m, 2020), suffix='')} with MB3".replace("+", ""),
+            "docs/METHODOLOGY.md")
 
     # ---- blanks and the top-code ----
     add("blank employment values", f"{int(a['employment_level'].isna().sum())} of {len(a):,} employment values", "docs/METHODOLOGY.md")

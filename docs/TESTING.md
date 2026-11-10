@@ -11,9 +11,9 @@ The suite checks that the pipeline is correct and repeatable: that the data is c
 |---|---|---|
 | Data integrity | Keys are unique, every year is present, JOLTS rates are in range, real wages equal nominal wages in the base year (a sanity check that the inflation adjustment works) | `tests/test_data_integrity.py` |
 | Calculations | Year-matched lags (a change is computed against the actual prior year, never across a gap), growth features, the CPI and JOLTS merges, the 2020 shock-and-recovery table | `tests/test_features.py`, `test_macro_features.py`, `test_shock_replay.py` |
-| Repeatability | The committed 2020 table matches what the current data produce when rebuilt | `tests/test_shock_replay.py` |
+| Repeatability | The committed 2020 table matches what the current data produce when rebuilt; the checksum list names all 17 raw BLS archives, and the raw files on a machine that has them match it | `tests/test_shock_replay.py` |
 | Documentation | Every figure quoted in the README and methodology (the real-wage shares, the 2020 responses and so on) is recomputed from the committed data by `src/doc_figures.py` and must appear in the docs exactly as computed; relative links and heading anchors resolve | `tests/test_doc_figures.py`, `test_docs.py` |
-| Robustness checks | The real-wage-decline shares under other CPI months, the 2020 response calculation applied to years with no shock, and BLS's relative standard errors (present, in range, smaller for larger occupations) | `tests/test_robustness.py` |
+| Robustness checks | The method comparison (the committed table is what the two panels produce, and the claims about it hold), the real-wage-decline shares under other CPI months, the 2020 response calculation applied to years with no shock, and BLS's relative standard errors (present, in range, smaller for larger occupations) | `tests/test_robustness.py` |
 | Data fetching | Quirks of the BLS files and API, such as a request that reports success but returns no data, or column names that change between release years; which file each year is read from (the recalculated 2015–2020 estimates or the standard archive) | `tests/test_fetchers.py` |
 | Dashboard | Every callback (the function behind each chart and filter) returns the expected output | `tests/test_app.py` |
 

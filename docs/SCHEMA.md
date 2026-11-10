@@ -1,6 +1,6 @@
 # Data Schema
 
-All processed files live in `data/processed/` and are **committed to the repo** so the deployed dashboard can run without re-downloading from BLS (the raw `data/raw/` archives are the git-ignored part). Regenerate them via the scripts in `data/` and `src/` — pipeline order is in the [README](../README.md#rebuild-everything-from-raw-bls-data-optional).
+All processed files live in `data/processed/` and are **committed to the repo** so the deployed dashboard can run without re-downloading from BLS (the raw `data/raw/` archives are the git-ignored part). Regenerate them via the scripts in `data/` and `src/` — pipeline order is in the [README](../README.md#run-it).
 
 Abbreviations (BLS, OEWS, JOLTS, CPI-U, NAICS, SOC, YoY) are defined at the top of [METHODOLOGY.md](METHODOLOGY.md).
 
@@ -15,19 +15,19 @@ One row per occupation x year, national (US) estimates. Annual cadence (OEWS ref
 | `year` | int | Release year, 2015-2025 |
 | `occ_code` | str | 6-digit SOC occupation code, e.g. `29-1141` |
 | `occ_title` | str | Occupation name |
-| `employment_level` | float | Estimated employment count |
-| `wage_hourly_mean` | float | Mean hourly wage ($) |
-| `wage_annual_mean` | float | Mean annual wage ($) |
+| `employment_level` | float | Estimated number of jobs held by wage and salary workers in nonfarm establishments; rounded by BLS to the nearest 10 (see [Terms](METHODOLOGY.md#terms)) |
+| `wage_hourly_mean` | float | Mean hourly wage ($): straight-time gross pay, excluding overtime and premium pay (see [Terms](METHODOLOGY.md#terms)) |
+| `wage_annual_mean` | float | Mean annual wage ($), on a 2,080-hour year |
 | `wage_hourly_median` | float | Median hourly wage ($) |
-| `wage_annual_median` | float | Median annual wage ($) |
+| `wage_annual_median` | float | Median annual wage ($), on a 2,080-hour year |
 | `wage_annual_pct10` | float | 10th percentile annual wage ($) |
 | `wage_annual_pct90` | float | 90th percentile annual wage ($) |
-| `employment_prse` | float | BLS's percent relative standard error of `employment_level` (a sampling-error measure, as a percent of the estimate; 2.2% median). Occupation table only |
+| `employment_prse` | float | BLS's percent relative standard error of `employment_level` (BLS's relative standard error, as a percent of the estimate; 2.2% median). Occupation table only |
 | `wage_annual_mean_prse` | float | Same, for `wage_annual_mean` (0.8% median). BLS publishes no such error for medians or percentiles. Occupation table only |
 
 Source: `data/fetch_oews.py`, parsing BLS's annual archives: the recalculated "research estimates" (`oes_mb3_{year}a.zip`) for 2015–2020 and `oesm{YY}all.zip` for 2021–2025, so every year uses the same estimation method (see [METHODOLOGY.md](METHODOLOGY.md#data-sources-and-constraints)). Rows are filtered to `AREA_TYPE == 1` (national), `O_GROUP == "detailed"` (not aggregated major/minor/broad groups) and `NAICS == "000000"` (cross-industry total, not a specific sector). 8,988 rows; 789–831 distinct occupation codes per year.
 
-**Nulls:** BLS marks suppressed or out-of-range estimates with `*` / `#` strings, which the parser coerces to null. Share of nulls per column (all rows): `employment_level` 0.0% (four values), `wage_annual_mean` 0.6%, `wage_annual_median` 1.7%, `wage_hourly_mean` 7.2%, `wage_hourly_median` 8.4%, `wage_annual_pct90` 4.9% (`wage_annual_pct10` 0.6%; `employment_prse` 0.1% and `wage_annual_mean_prse` 0.0%). The missingness is not random: hourly columns are null mainly for occupations BLS reports as annual salary only (postsecondary teachers, legislators, school administrators — rows with a null `wage_hourly_mean` have a median annual mean wage of $83,565 vs. $53,680 for the rest), and `wage_annual_pct90` is null for the very top earners (median annual mean wage $171,520 vs. $54,250; e.g. Chief Executives, Marketing Managers). Analyses on those columns silently drop higher-paid occupations. Growth features are also null wherever the occupation code is absent from the comparison year (SOC code revisions mean not every occupation has a continuous 11-year history).
+**Nulls:** BLS marks suppressed or out-of-range estimates with `*` / `#` strings, which the parser coerces to null. Share of nulls per column (all rows): `employment_level` 0.0% (four values), `wage_annual_mean` 0.6%, `wage_annual_median` 1.7%, `wage_hourly_mean` 7.2%, `wage_hourly_median` 8.4%, `wage_annual_pct90` 4.9% (`wage_annual_pct10` 0.6%; `employment_prse` 0.1% and `wage_annual_mean_prse` 0.0%). The missingness is not random: hourly columns are null mainly for occupations BLS reports as annual salary only (postsecondary teachers, legislators, school administrators — rows with a null `wage_hourly_mean` have a median annual mean wage of $83,565 vs. $53,680 for the rest), and `wage_annual_pct90` is null for the highest earners (median annual mean wage $171,520 vs. $54,250; e.g. Chief Executives, Marketing Managers). Analyses on those columns silently drop higher-paid occupations. Growth features are also null wherever the occupation code is absent from the comparison year (SOC code revisions mean not every occupation has a continuous 11-year history).
 
 ## `oews_occupation_features.csv`
 
@@ -76,6 +76,18 @@ Same structure as above, but national-level only, broken out by industry sector 
 The features file also has `wage_annual_mean_real`, `real_wage_growth_yoy_pct` and `purchasing_power_loss_flag` (same definitions as above) and `jolts_openings_rate`, `jolts_quits_rate` and `jolts_layoffs_rate`: the national annual-average JOLTS rates for the sector's closest JOLTS industry (null for sector `11`, agriculture, which JOLTS doesn't cover).
 
 92,104 rows: 20 sectors × 11 years, with 143–641 detailed occupations present per sector in 2025 (about 426 on average) — most occupations don't appear in most sectors, so this is far smaller than 20 × ~800 × 10. About 8,200–8,600 rows per year (8,527 in 2025). Sector titles aren't stable across releases: NAICS `99` (government) carries four different `naics_title` strings across the 11 years, so group on `naics`, not `naics_title` (the dashboard uses the most recent year's title). State-level industry breakdowns are excluded: OEWS suppresses too many state x sector x detailed-occupation cells to build a reliable one.
+
+## `oews_occupation_panel_original_method.csv` and `mb3_comparison.csv`
+
+`oews_occupation_panel_original_method.csv` has the same columns as `oews_occupation_panel.csv`, for 2015–2020 only, taken from the archives BLS first published for those years (the estimates before the MB3 method). The dashboard does not read it; `src/mb3_comparison.py` compares it with the panel the dashboard uses (see [METHODOLOGY.md](METHODOLOGY.md#how-much-the-estimation-method-matters)).
+
+| Column of `mb3_comparison.csv` | Type | Description |
+|---|---|---|
+| `measure` | str | The figure compared, for example `real wage decline: share of occupations (%)` |
+| `year` | float | Release year; blank for a figure that covers the whole period |
+| `original_method` | float | The measure computed on the series with the original 2015–2020 estimates |
+| `mb3` | float | The same measure on the series the dashboard uses (MB3 for 2015–2020) |
+| `agreement` | float | For the per-occupation rows only: the correlation of the two series' employment changes, or the median absolute difference between them (points) |
 
 ## `shock_2020_response.csv`
 

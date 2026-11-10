@@ -56,7 +56,7 @@ def test_real_wage_kpi_is_red_when_the_real_wage_fell(dashboard, occupation_feat
 
 def test_sector_ranking_floor_applies_to_both_years(dashboard, industry_features):
     for naics in ["72", "62", "44-45"]:
-        _, _, contracting, growth = dashboard.update_sector_tab(naics)
+        _, _, contracting, growth, *_ = dashboard.update_sector_tab(naics)
         for table in (contracting, growth):
             for r in table.data:
                 prior = r["employment_level"] / (1 + r["employment_change_yoy_pct"] / 100)
@@ -191,5 +191,176 @@ def test_tables_list_only_reliable_own_responses(dashboard):
 # ---- chart hints -----------------------------------------------------------
 
 def test_legend_sentence_only_when_the_chart_has_a_legend(dashboard):
-    assert "legend" not in dashboard.chart_hint().children
-    assert "legend" in dashboard.chart_hint(has_legend=True).children
+    assert "legend" not in " ".join(dashboard.chart_tips())
+    assert "legend" in " ".join(dashboard.chart_tips(has_legend=True))
+
+
+# ---- health endpoints, counts and the "About this chart" sections ------------------------------
+
+def test_healthz_answers_200_once_the_data_is_loaded(dashboard):
+    response = dashboard.server.test_client().get("/healthz")
+    assert response.status_code == 200 and response.get_json()["status"] == "ok"
+    assert response.get_json()["occupation_rows"] == len(dashboard.df)
+
+
+def test_debugz_reports_versions_data_and_uptime_without_settings_or_paths(dashboard):
+    body = dashboard.server.test_client().get("/debugz").get_json()
+    assert body["status"] == "ok" and body["uptime_seconds"] >= 0
+    assert {"dash", "plotly", "pandas", "gunicorn"} <= set(body["packages"])
+    assert body["data"]["occupation_rows"] == len(dashboard.df) and body["data"]["first_year"] == 2015
+    assert "memory_mb" in body                                           # a number on Linux, None where /proc is missing
+    assert not any(k in body for k in ("env", "environ", "path", "cwd"))
+
+
+def test_the_health_endpoints_are_real_routes_not_the_dash_front_page(dashboard):
+    client = dashboard.server.test_client()
+    assert client.get("/healthz").mimetype == "application/json"
+    assert client.get("/debugz").mimetype == "application/json"
+
+
+def graphs_and_followers(dashboard):
+    """[(Graph, the component right after it)] across the whole layout."""
+    found = []
+
+    def walk(node):
+        children = getattr(node, "children", None)
+        if isinstance(children, (list, tuple)):
+            for a, b in zip(children, list(children)[1:] + [None]):
+                if getattr(a, "id", None) is not None and type(a).__name__ == "Graph":
+                    found.append((a, b))
+            for c in children:
+                walk(c)
+        elif children is not None and not isinstance(children, str):
+            walk(children)
+
+    walk(dashboard.app.layout)
+    return found
+
+
+def test_every_chart_is_followed_by_a_collapsed_about_section_with_italic_tips(dashboard):
+    pairs = graphs_and_followers(dashboard)
+    assert {g.id for g, _ in pairs} == {"employment-chart", "wage-chart", "real-decline-chart", "sector-scatter", "shock-chart"}
+    for graph, follower in pairs:
+        assert type(follower).__name__ == "Details", graph.id
+        assert follower.children[0].children == "About this chart"
+        assert "open" not in (follower.to_plotly_json()["props"])         # collapsed until the reader opens it
+        assert follower.style["fontStyle"] == "italic"
+        bullets = follower.children[1].children
+        assert any("Drag to zoom" in str(b.children) for b in bullets)
+
+
+def test_charts_that_show_2015_to_2020_carry_the_mb3_caveat(dashboard):
+    with_caveat = {g.id for g, f in graphs_and_followers(dashboard) if "MB3 research estimates" in str(f.to_plotly_json())}
+    assert with_caveat == {"employment-chart", "wage-chart", "real-decline-chart", "shock-chart"}
+
+
+def test_legend_tips_appear_only_on_charts_with_a_legend(dashboard):
+    has_legend = {g.id: "legend entry" in str(f.to_plotly_json()) for g, f in graphs_and_followers(dashboard)}
+    assert has_legend == {"employment-chart": True, "wage-chart": True, "shock-chart": True,
+                          "real-decline-chart": False, "sector-scatter": False}
+
+
+def test_the_real_decline_chart_shows_the_count_behind_each_bar(dashboard, occupation_features):
+    fig = dashboard.real_decline_share_figure(occupation_features)
+    counts = occupation_features.dropna(subset=["real_wage_growth_yoy_pct"]).groupby("year").size()
+    assert list(fig.layout.xaxis.ticktext) == [f"{y}<br>n={counts[y]:,}" for y in counts.index]
+
+
+def test_counts_under_30_carry_an_asterisk(dashboard):
+    assert dashboard.count_label(154, "occupations") == "154 occupations"
+    assert dashboard.count_label(29, "occupations") == "29 occupations*"
+    assert dashboard.count_label(30, "occupations") == "30 occupations"
+
+
+def test_the_sector_chart_title_states_how_many_occupations_are_plotted_and_ranked(dashboard):
+    _, fig, *_ = dashboard.update_sector_tab("72")
+    assert "occupations plotted" in fig.layout.title.text and "ranked in the tables" in fig.layout.title.text
+    assert "154 ranked in the tables" in fig.layout.title.text            # the README's count of ranked occupations
+
+
+def test_the_occupation_charts_state_how_many_releases_are_plotted(dashboard):
+    _, emp_fig, wage_fig = dashboard.update_dashboard(RETAIL)
+    assert "(11 annual releases)" in emp_fig.layout.title.text and "(11 annual releases)" in wage_fig.layout.title.text
+
+
+def test_the_2020_tables_say_how_many_occupations_they_choose_from(dashboard):
+    headings = []
+
+    def walk(node):
+        children = getattr(node, "children", None)
+        if type(node).__name__ == "H4":
+            headings.append(children)
+        if isinstance(children, (list, tuple)):
+            for c in children:
+                walk(c)
+        elif children is not None and not isinstance(children, str):
+            walk(children)
+
+    walk(dashboard.tab3_content)
+    assert len(headings) == 2
+    assert all(f"10 of {dashboard.N_OWN_RESPONSES:,} occupations" in h for h in headings)
+    assert dashboard.N_OWN_RESPONSES == len(dashboard.own_response_rows()) > 400
+
+
+def containers_and_followers(dashboard, ids):
+    """[(container id, the component right after it)] for the table containers in the layout."""
+    found = []
+
+    def walk(node):
+        children = getattr(node, "children", None)
+        if isinstance(children, (list, tuple)):
+            for a, b in zip(children, list(children)[1:] + [None]):
+                if getattr(a, "id", None) in ids:
+                    found.append((a.id, b))
+            for c in children:
+                walk(c)
+        elif children is not None and not isinstance(children, str):
+            walk(children)
+
+    walk(dashboard.app.layout)
+    return found
+
+
+TABLE_IDS = {"sector-top-contracting", "sector-top-growth", "shock-hardest", "shock-resilient"}
+
+
+def test_every_table_is_followed_by_a_collapsed_about_section(dashboard):
+    pairs = containers_and_followers(dashboard, TABLE_IDS)
+    assert {i for i, _ in pairs} == TABLE_IDS
+    for table_id, follower in pairs:
+        assert type(follower).__name__ == "Details", table_id
+        assert follower.children[0].children == "About this table"
+        assert follower.style["fontStyle"] == "italic"
+        assert "open" not in follower.to_plotly_json()["props"]
+        assert len(follower.children[1].children) >= 3                     # the notes that used to sit beneath it, plus its caveats
+
+
+def test_the_2020_tables_carry_the_mb3_caveat_and_the_sector_tables_do_not(dashboard):
+    by_id = {i: "MB3 research estimates" in str(f.to_plotly_json()) for i, f in containers_and_followers(dashboard, TABLE_IDS)}
+    assert by_id == {"shock-hardest": True, "shock-resilient": True, "sector-top-contracting": False, "sector-top-growth": False}
+
+
+def test_nothing_but_the_count_and_notes_sits_beneath_a_chart_or_table(dashboard):
+    # the explanatory paragraphs that used to follow the charts and the 2020 tables now live in the About sections
+    def paragraphs(node, out):
+        children = getattr(node, "children", None)
+        if type(node).__name__ == "P" and isinstance(children, str):
+            out.append(children)
+        if isinstance(children, (list, tuple)):
+            for c in children:
+                paragraphs(c, out)
+        elif children is not None and not isinstance(children, str):
+            paragraphs(children, out)
+        return out
+
+    text = " ".join(paragraphs(dashboard.app.layout, []))
+    assert "The two tables list occupations" not in text
+    assert "Wages are deflated with each year's May CPI-U" not in text
+
+
+def test_the_sector_table_headings_state_how_many_occupations_are_ranked(dashboard):
+    *_, contracting_heading, growth_heading = dashboard.update_sector_tab("72")
+    assert contracting_heading == "Top 10 contracting (of 154 ranked occupations)"
+    assert growth_heading == "Top 10 growing (of 154 ranked occupations)"
+    *_, small_a, small_b = dashboard.update_sector_tab("11")
+    assert small_a.startswith("Top 10 contracting (of ") and ("*" in small_a) == ("*" in small_b)

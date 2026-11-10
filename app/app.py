@@ -7,10 +7,14 @@ data/processed/, with CPI-U inflation-adjusted wages and JOLTS job-market
 tightness merged in by src/build_macro_features.py. The dashboard is
 descriptive: it reports what the data show.
 """
+import platform
+import time
+from importlib import metadata
 from pathlib import Path
 
 import dash
 import pandas as pd
+import plotly
 import plotly.graph_objects as go
 from dash import Input, Output, dash_table, dcc, html
 
@@ -24,13 +28,17 @@ SHOCK_PATH = PROCESSED_DIR / "shock_2020_response.csv"
 # in a single sector are dominated by survey sampling noise (see update_sector_tab).
 SECTOR_RANKING_MIN_EMPLOYMENT = 500
 
-# Interactive charts hide the mode bar and get a hint line instead, since
-# displayModeBar=False makes drag-to-zoom/double-click-reset/legend-click
-# otherwise undiscoverable. The legend sentence is only added for charts that
-# have a legend.
+# Interactive charts hide the mode bar, which makes drag-to-zoom, double-click-reset and
+# legend-click otherwise undiscoverable. Each chart therefore has a collapsed "About this
+# chart" section that lists its caveats and these tips as italic bullets. The legend tip is
+# only added for charts that have a legend.
 CHART_HINT_BASE = "Drag to zoom into part of the chart; double-click the chart to reset the view."
-CHART_HINT_LEGEND_CLAUSE = " Click a legend entry to hide that series; double-click it to isolate it."
+CHART_HINT_LEGEND_CLAUSE = "Click a legend entry to hide that series; double-click it to isolate it."
 NO_MODEBAR = {"displayModeBar": False}
+METHODOLOGY_URL = "https://github.com/brianravelo28/occupation-employment-wage-explorer/blob/main/docs/METHODOLOGY.md"
+# Counts under this many carry an asterisk: a statistic over so few occupations is a weak basis.
+SMALL_COUNT = 30
+START_TIME = time.time()
 
 
 def rse_note(rse):
@@ -38,9 +46,70 @@ def rse_note(rse):
     return f" · RSE {rse:.1f}%" if pd.notna(rse) else ""
 
 
-def chart_hint(has_legend=False):
-    text = CHART_HINT_BASE + (CHART_HINT_LEGEND_CLAUSE if has_legend else "")
-    return html.P(text, style={"margin": "4px 2px 16px", "color": "#999", "fontSize": "12px", "fontStyle": "italic"})
+def count_label(n, noun):
+    """'154 occupations', or '12 occupations*' when the count is under SMALL_COUNT."""
+    return f"{n:,} {noun}" + ("*" if n < SMALL_COUNT else "")
+
+
+def chart_tips(has_legend=False):
+    return [CHART_HINT_BASE] + ([CHART_HINT_LEGEND_CLAUSE] if has_legend else [])
+
+
+def about_table(caveats=()):
+    """A collapsed 'About this table' section: everything noted beneath a table, as italic bullets."""
+    items = [c if isinstance(c, list) else [c] for c in caveats]
+    return html.Details(
+        [
+            html.Summary("About this table", style={"cursor": "pointer"}),
+            html.Ul([html.Li(item) for item in items], style={"margin": "6px 0 0", "paddingLeft": "20px"}),
+        ],
+        style={"margin": "4px 2px 16px", "color": "#888", "fontSize": "12px", "fontStyle": "italic"},
+    )
+
+
+# BLS's 2015-2020 research estimates (MB3) differ from the figures it first published; every
+# chart that shows those years says so (docs/METHODOLOGY.md, "How much the estimation method matters").
+MB3_CAVEAT = [
+    "2015–2020 values are BLS's MB3 research estimates and can differ from the figures BLS first published (",
+    html.A("how much", href=METHODOLOGY_URL + "#how-much-the-estimation-method-matters", target="_blank", rel="noopener"),
+    ").",
+]
+
+
+def sector_table_notes(direction):
+    """direction: 'fall' or 'gain'."""
+    return [
+        f"Lists the ten occupations in the sector with the largest {direction} in employment between the {LATEST_YEAR - 1} and {LATEST_YEAR} releases.",
+        f"Occupations under {SECTOR_RANKING_MIN_EMPLOYMENT} employees in either release are left out, because a small base turns a few jobs into a large percentage.",
+        "The count in the heading is the number of occupations ranked; an asterisk marks a count under 30.",
+        "Each release pools three years of survey data, so a change is a change in a moving average and is directional.",
+    ]
+
+
+def shock_table_notes(kind):
+    """kind: 'hardest' or 'resilient'."""
+    return [
+        ("Lists the ten occupations whose employment fell furthest below their own 2016–2019 trend in the 2020 release."
+         if kind == "hardest" else
+         "Lists the ten occupations whose employment held up best against their own 2016–2019 trend in the 2020 release."),
+        "Only occupations with at least 10,000 employees in 2019 and 2020 have their own response; the \"All Other\" residual categories, which do not describe a single job, are left out.",
+        "The count in the heading is the number of occupations the table chooses from; an asterisk marks a count under 30.",
+        ["Responses of a few points are within the range the same calculation gives in years with no shock; the large ones stand out. ",
+         html.A("Details", href=METHODOLOGY_URL + "#2020-shock-and-recovery", target="_blank", rel="noopener"), "."],
+        MB3_CAVEAT,
+    ]
+
+
+def about_chart(caveats=(), has_legend=False):
+    """A collapsed 'About this chart' section: caveats first, then interaction tips, as italic bullets."""
+    items = [c if isinstance(c, list) else [c] for c in caveats] + [[tip] for tip in chart_tips(has_legend)]
+    return html.Details(
+        [
+            html.Summary("About this chart", style={"cursor": "pointer"}),
+            html.Ul([html.Li(item) for item in items], style={"margin": "6px 0 0", "paddingLeft": "20px"}),
+        ],
+        style={"margin": "4px 2px 16px", "color": "#888", "fontSize": "12px", "fontStyle": "italic"},
+    )
 
 
 df = pd.read_csv(DATA_PATH)
@@ -69,6 +138,21 @@ def _balanced_totals():
 BALANCED_TOTALS = _balanced_totals()
 
 
+def own_response_rows():
+    """Occupations whose own (not group) 2020 response is reliable, with their latest employment."""
+    if shock_response is None:
+        return pd.DataFrame(columns=["occ_title", "employment_level", "response_pct"])
+    own = shock_response[shock_response["source"] == "occupation"]
+    latest = df[df["year"] == LATEST_YEAR].set_index("occ_code")
+    rows = own.join(latest[["occ_title", "employment_level"]], how="inner").reset_index()
+    # "All Other" residual categories don't describe a single job, so they are left out of the lists
+    rows = rows[~rows["occ_title"].str.contains("All Other", regex=False)]
+    return rows[["occ_title", "employment_level", "response_pct"]]
+
+
+N_OWN_RESPONSES = len(own_response_rows())
+
+
 def real_decline_share_figure(frame):
     """Bar chart: for each release year, the share of occupations whose real wage fell.
 
@@ -86,7 +170,9 @@ def real_decline_share_figure(frame):
     fig.update_layout(
         title="Occupations whose real wage fell, by release year",
         yaxis=dict(title="Share of occupations (%)", range=[0, 105]),
-        xaxis=dict(dtick=1), margin=dict(t=60), showlegend=False,
+        xaxis=dict(title="Release year and number of occupations with a wage change (n)", tickmode="array",
+                   tickvals=list(by_year.index), ticktext=[f"{y}<br>n={n:,}" for y, n in by_year["n"].items()]),
+        margin=dict(t=60), showlegend=False,
     )
     return fig
 
@@ -119,9 +205,26 @@ tab1_content = html.Div(
         ),
         html.Div(id="kpi-row", style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(132px, 1fr))", "gap": "16px", "marginBottom": "24px"}),
         dcc.Graph(id="employment-chart", config=NO_MODEBAR),
-        chart_hint(has_legend=True),
+        about_chart(
+            [
+                "Employment counts wage and salary jobs in nonfarm establishments, rounded to the nearest 10; the self-employed are not included.",
+                "The shaded band is the estimate plus or minus 1.96 times BLS's relative standard error for each release. It does not account for the overlap between releases, which each pool three years.",
+                MB3_CAVEAT,
+                "The count in the title is the number of annual releases plotted, not a sample size.",
+            ],
+            has_legend=True,
+        ),
         dcc.Graph(id="wage-chart", config=NO_MODEBAR),
-        chart_hint(has_legend=True),
+        about_chart(
+            [
+                "The mean annual wage is straight-time gross pay on a 2,080-hour year; overtime and benefits are not included.",
+                f"Real values are in {LATEST_YEAR} dollars, deflated with each year's May CPI-U. BLS adjusts older panels' wages to May, so the deflation is approximate.",
+                "A change in a mean wage also reflects who works in the occupation, so it is not the pay change of a fixed job.",
+                MB3_CAVEAT,
+                "The count in the title is the number of annual releases plotted, not a sample size.",
+            ],
+            has_legend=True,
+        ),
         html.H3("All occupations: how many lost ground to inflation?", style={"marginTop": "32px"}),
         html.P(
             "Each bar is the share of occupations whose mean wage, after adjusting for CPI-U inflation, was lower "
@@ -129,20 +232,14 @@ tab1_content = html.Div(
             style={"color": "#666"},
         ),
         dcc.Graph(id="real-decline-chart", figure=real_decline_share_figure(df), config=NO_MODEBAR),
-        chart_hint(),
-        html.P(
+        about_chart(
             [
-                "Wages are deflated with each year's May CPI-U, because OEWS wages describe a May reference period. "
-                "The 2022 result holds with other CPI months; the 2021 result depends on the month used. Each survey "
-                "release pools three years of samples, so read the shares as directional. ",
-                html.A(
-                    "Details in the methodology",
-                    href="https://github.com/brianravelo28/occupation-employment-wage-explorer/blob/main/docs/METHODOLOGY.md#cpi-and-jolts",
-                    target="_blank", rel="noopener",
-                ),
-                ".",
-            ],
-            style={"color": "#888", "fontSize": "13px"},
+                "Each bar counts the occupations with a mean wage in both the current and the previous release; n under each year is that count.",
+                "Wages are deflated with each year's May CPI-U, because OEWS wages describe a May reference period. The 2022 result holds with other CPI months; the 2021 result depends on the month used.",
+                "Each survey release pools three years of samples, so read the shares as directional.",
+                MB3_CAVEAT,
+                ["Details: ", html.A("CPI and sampling-error checks", href=METHODOLOGY_URL + "#cpi-and-jolts", target="_blank", rel="noopener"), "."],
+            ]
         ),
     ]
 )
@@ -183,12 +280,18 @@ if industry_df is not None:
             ),
             html.Div(id="sector-jolts-row", style={"display": "flex", "flexWrap": "wrap", "gap": "16px", "marginBottom": "16px"}),
             dcc.Graph(id="sector-scatter", config=NO_MODEBAR),
-            chart_hint(),
+            about_chart(
+                [
+                    "Each bubble is an occupation in the sector; its size is its employment and its colour its employment change.",
+                    f"Occupations under {SECTOR_RANKING_MIN_EMPLOYMENT} employees in either year compared are plotted but left out of the two tables, because a small base turns a few jobs into a large percentage.",
+                    "An asterisk marks a count under 30.",
+                ]
+            ),
             html.Div(
                 style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "16px", "marginTop": "8px"},
                 children=[
-                    html.Div([html.H4("Top 10 contracting"), html.Div(id="sector-top-contracting")]),
-                    html.Div([html.H4("Top 10 growing"), html.Div(id="sector-top-growth")]),
+                    html.Div([html.H4(id="sector-contracting-heading"), html.Div(id="sector-top-contracting"), about_table(sector_table_notes("fall"))]),
+                    html.Div([html.H4(id="sector-growth-heading"), html.Div(id="sector-top-growth"), about_table(sector_table_notes("gain"))]),
                 ],
             ),
         ]
@@ -202,16 +305,16 @@ else:
 tab3_content = html.Div(
     children=[
         html.P(
-            "How did occupations fare when the 2020 recession hit, and how far have they come back? Employment is "
+            "How did employment change in 2020, and how far has it come back? Employment is "
             f"shown relative to the {BASE_YEAR} release (= 100). The 2020 response is the occupation's change in the "
-            "2020 release minus how fast it had been growing in 2016-2019, so only the part plausibly due to the "
-            "shock remains.",
+            "2020 release minus how fast it had been growing in 2016-2019, so it is the change beyond the "
+            "occupation's own trend.",
             style={"color": "#666", "marginTop": "20px"},
         ),
         html.P(
-            "Two cautions. Each OEWS release pools three years of survey data, so the 2020 release shows the "
-            "shock smeared out and the rebound arrives mostly in the 2022 release. And an occupation's own "
-            "year-to-year change is very noisy below about 10,000 employees, so smaller occupations show their "
+            "Each OEWS release pools three years of survey data, so the 2020 release shows the "
+            "change smeared out and the rebound arrives mostly in the 2022 release. An occupation's own "
+            "year-to-year change varies widely below about 10,000 employees, so smaller occupations show their "
             "occupation group's response instead (the card says which was used).",
             style={"color": "#888", "fontSize": "13px"},
         ),
@@ -229,19 +332,20 @@ tab3_content = html.Div(
         ),
         html.Div(id="shock-kpi-row", style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(160px, 1fr))", "gap": "16px", "marginBottom": "24px"}),
         dcc.Graph(id="shock-chart", config=NO_MODEBAR),
-        chart_hint(has_legend=True),
+        about_chart(
+            [
+                f"The index is employment relative to the {BASE_YEAR} release. The dotted line is the total for the occupations present in every release, a fixed set of {BALANCED_TOTALS[1]} occupations.",
+                "Each release pools three years of survey data, so the 2020 release shows the change smeared out and the rebound arrives mostly in the 2022 release.",
+                MB3_CAVEAT,
+            ],
+            has_legend=True,
+        ),
         html.Div(
             style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "16px", "marginTop": "8px"},
             children=[
-                html.Div([html.H4("Hardest hit in 2020"), html.Div(id="shock-hardest")]),
-                html.Div([html.H4("Most resilient in 2020"), html.Div(id="shock-resilient")]),
+                html.Div([html.H4(f"Hardest hit in 2020 (10 of {count_label(N_OWN_RESPONSES, 'occupations')})"), html.Div(id="shock-hardest"), about_table(shock_table_notes("hardest"))]),
+                html.Div([html.H4(f"Most resilient in 2020 (10 of {count_label(N_OWN_RESPONSES, 'occupations')})"), html.Div(id="shock-resilient"), about_table(shock_table_notes("resilient"))]),
             ],
-        ),
-        html.P(
-            "The two tables list occupations with at least 10,000 employees (their own response, not their "
-            "group's), leaving out the \"All Other\" residual categories, which don't describe a "
-            "single job. Differences of a few points are within the survey's sampling noise; the large ones are the signal.",
-            style={"color": "#888", "fontSize": "12px"},
         ),
     ]
 )
@@ -355,7 +459,7 @@ def update_dashboard(occ_code):
         ))
     emp_fig.add_trace(go.Scatter(x=sub["year"], y=sub["employment_level"], mode="lines+markers", name="Employment"))
     emp_fig.update_layout(
-        title=f"Employment history — {occ_title}", yaxis_title="Employment", margin=dict(t=70),
+        title=f"Employment history — {occ_title} ({int(sub['employment_level'].notna().sum())} annual releases)", yaxis_title="Employment", margin=dict(t=70),
         legend=dict(orientation="h", y=1.08, x=0),
     )
 
@@ -363,7 +467,7 @@ def update_dashboard(occ_code):
     wage_fig.add_trace(go.Scatter(x=sub["year"], y=sub["wage_annual_mean"], mode="lines+markers", name="Nominal"))
     wage_fig.add_trace(go.Scatter(x=sub["year"], y=sub["wage_annual_mean_real"], mode="lines+markers", name=f"Real ({LATEST_YEAR} dollars)"))
     wage_fig.update_layout(
-        title=f"Annual mean wage, nominal vs. inflation-adjusted — {occ_title}",
+        title=f"Annual mean wage, nominal vs. inflation-adjusted — {occ_title} ({int(sub['wage_annual_mean'].notna().sum())} annual releases)",
         yaxis_title="Annual mean wage ($)",
         margin=dict(t=70),
         legend=dict(orientation="h", y=1.08, x=0),
@@ -409,6 +513,8 @@ if industry_df is not None:
         Output("sector-scatter", "figure"),
         Output("sector-top-contracting", "children"),
         Output("sector-top-growth", "children"),
+        Output("sector-contracting-heading", "children"),
+        Output("sector-growth-heading", "children"),
         Input("sector-dropdown", "value"),
         Input("sector-wage-basis", "value"),
     )
@@ -416,9 +522,8 @@ if industry_df is not None:
         wage_col = "real_wage_growth_yoy_pct" if wage_basis == "real" else "wage_growth_yoy_pct"
         wage_label = "Real wage growth" if wage_basis == "real" else "Nominal wage growth"
         latest_year = industry_df["year"].max()
-        sub = industry_df[(industry_df["naics"] == naics_code) & (industry_df["year"] == latest_year)].dropna(
-            subset=["employment_change_yoy_pct", wage_col]
-        )
+        in_sector = industry_df[(industry_df["naics"] == naics_code) & (industry_df["year"] == latest_year)]
+        sub = in_sector.dropna(subset=["employment_change_yoy_pct", wage_col])          # the scatter needs both axes
         sector_name = sub["naics_title"].iloc[0] if len(sub) and "naics_title" in sub.columns else naics_code
 
         scatter_fig = go.Figure(
@@ -440,7 +545,6 @@ if industry_df is not None:
         scatter_fig.add_hline(y=0, line_color="#ccc")
         scatter_fig.add_vline(x=0, line_color="#ccc")
         scatter_fig.update_layout(
-            title=dict(text=f"{sector_name} — {wage_label.lower()} vs employment change, {latest_year} (bubble size = employment)", font=dict(size=14)),
             xaxis_title=f"{wage_label} YoY (%)",
             yaxis_title="Employment change YoY (%)",
             margin=dict(t=50),
@@ -453,16 +557,27 @@ if industry_df is not None:
         # compared, since a floor on the current year alone lets a jump from a
         # tiny base through (120 -> 960 employees reads as +700%). The prior-year
         # count is recovered exactly from the YoY percentage.
-        prior_employment = (sub["employment_level"] / (1 + sub["employment_change_yoy_pct"] / 100)).round()
-        ranked = sub[
-            (sub["employment_level"] >= SECTOR_RANKING_MIN_EMPLOYMENT)
+        # The tables rank employment change, so they do not depend on the wage basis or on a wage being published.
+        with_change = in_sector.dropna(subset=["employment_change_yoy_pct"])
+        prior_employment = (with_change["employment_level"] / (1 + with_change["employment_change_yoy_pct"] / 100)).round()
+        ranked = with_change[
+            (with_change["employment_level"] >= SECTOR_RANKING_MIN_EMPLOYMENT)
             & (prior_employment >= SECTOR_RANKING_MIN_EMPLOYMENT)
         ]
+        scatter_fig.update_layout(
+            title=dict(
+                text=(f"{sector_name} — {wage_label.lower()} vs employment change, {latest_year} "
+                      f"(bubble size = employment; {count_label(len(sub), 'occupations')} plotted, {count_label(len(ranked), 'ranked')} in the tables)"),
+                font=dict(size=14),
+            )
+        )
         cols = ["occ_title", "employment_level", "employment_change_yoy_pct"]
         top_contracting = ranked.nsmallest(10, "employment_change_yoy_pct")[cols]
         top_growth = ranked.nlargest(10, "employment_change_yoy_pct")[cols]
 
-        return sector_jolts_cards(naics_code, latest_year), scatter_fig, movers_table(top_contracting), movers_table(top_growth)
+        counted = count_label(len(ranked), "ranked occupations")
+        return (sector_jolts_cards(naics_code, latest_year), scatter_fig, movers_table(top_contracting), movers_table(top_growth),
+                f"Top 10 contracting (of {counted})", f"Top 10 growing (of {counted})")
 
 
 def shock_for(occ_code):
@@ -489,18 +604,6 @@ def response_table(rows):
         style_cell_conditional=[{"if": {"column_id": "occ_title"}, "textAlign": "left"}],
         style_as_list_view=True,
     )
-
-
-def own_response_rows():
-    """Occupations whose own (not group) 2020 response is reliable, with their latest employment."""
-    if shock_response is None:
-        return pd.DataFrame(columns=["occ_title", "employment_level", "response_pct"])
-    own = shock_response[shock_response["source"] == "occupation"]
-    latest = df[df["year"] == LATEST_YEAR].set_index("occ_code")
-    rows = own.join(latest[["occ_title", "employment_level"]], how="inner").reset_index()
-    # "All Other" residual categories don't describe a single job, so they are left out of the lists
-    rows = rows[~rows["occ_title"].str.contains("All Other", regex=False)]
-    return rows[["occ_title", "employment_level", "response_pct"]]
 
 
 @app.callback(
@@ -554,6 +657,46 @@ def update_shock_tab(occ_code):
         legend=dict(orientation="h", y=1.1, x=0),
     )
     return kpis, fig, hardest, resilient
+
+
+@server.route("/healthz")
+def healthz():
+    """For the host's health check: answers 200 once the data has loaded."""
+    return {"status": "ok", "occupation_rows": len(df)}
+
+
+def _memory_mb():
+    """Resident memory of this process in MB (Linux), or None where /proc is not available."""
+    try:
+        with open("/proc/self/status", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return round(int(line.split()[1]) / 1024, 1)
+    except OSError:
+        pass
+    return None
+
+
+def _version(package):
+    try:
+        return metadata.version(package)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+@server.route("/debugz")
+def debugz():
+    """What the host is running: process age, versions, the data loaded and memory (no settings or paths)."""
+    return {
+        "status": "ok",
+        "uptime_seconds": round(time.time() - START_TIME),
+        "python": platform.python_version(),
+        "packages": {"dash": dash.__version__, "plotly": plotly.__version__, "pandas": pd.__version__,
+                     "gunicorn": _version("gunicorn")},
+        "data": {"occupation_rows": len(df), "industry_rows": None if industry_df is None else len(industry_df),
+                 "first_year": FIRST_YEAR, "last_year": LATEST_YEAR},
+        "memory_mb": _memory_mb(),
+    }
 
 
 def growth_color(growth_pct):

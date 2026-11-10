@@ -15,7 +15,7 @@ The repo is Render-ready as-is:
 
 **Gotcha.** For a service created manually, the Start Command lives in Render's dashboard settings: editing `Procfile` or `render.yaml` later does *not* change an existing service. Update it under **Settings > Start Command**.
 
-**Health and debug endpoints.** `/healthz` answers 200 with `{"status": "ok"}` once the data has loaded; `render.yaml` sets it as the health check path (for a service created manually, set it under **Settings > Health Check Path**). `/debugz` returns the process's uptime, Python and package versions, the rows loaded and its resident memory in MB (read from `/proc` on Linux, so it is blank on Windows). It carries no settings or paths.
+**Health and debug endpoints.** `/healthz` answers 200 with `{"status": "ok"}` once the data has loaded; `render.yaml` sets it as the health check path (for a service created manually, set it under **Settings > Health Check Path**). `/debugz` returns the process's uptime, Python and package versions, the rows loaded and its resident memory in MB (read from `/proc` on Linux, so it is blank on Windows). It carries no settings or paths. Hosted figures (2026-11-10, Python 3.14.8, gunicorn 27.0.0, pandas 3.1.1): 139 MB resident memory 18 seconds after start, and about 151 MB after all three tabs had loaded.
 
 **No secrets needed.** The dashboard reads only the processed CSVs committed under `data/processed/`. The raw BLS archives are git-ignored (see [.gitignore](../.gitignore)): Render can't reliably regenerate the processed tables at build time, since BLS's API has had multi-day outages.
 

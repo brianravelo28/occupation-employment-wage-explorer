@@ -251,8 +251,8 @@ app.layout = html.Div(
     children=[
         html.H1("Occupation Employment & Wage Explorer", style={"marginBottom": "4px"}),
         html.P(
-            f"US national BLS OEWS data, {FIRST_YEAR}-{LATEST_YEAR} (annual), with inflation-adjusted (real) wages from CPI-U and "
-            "JOLTS job-market tightness.",
+            f"US national BLS OEWS data, {FIRST_YEAR}-{LATEST_YEAR} (annual): wage and salary jobs in nonfarm establishments and their mean "
+            "annual wages, with inflation-adjusted (real) wages from CPI-U and JOLTS job-market tightness.",
             style={"color": "#666", "marginTop": 0},
         ),
         dcc.Tabs(
@@ -342,8 +342,8 @@ def update_dashboard(occ_code):
 
     emp_fig = go.Figure()
     # BLS publishes a relative standard error (RSE) for each year's employment estimate; the
-    # band is the estimate plus or minus 1.96 standard errors, a rough 95% range for that
-    # year's sampling error. It does not account for the overlap between releases.
+    # band is the estimate plus or minus 1.96 standard errors, a rough 95% range for the
+    # estimate in that release. It does not account for the overlap between releases.
     banded = sub.dropna(subset=["employment_level", "employment_prse"])
     if not banded.empty:
         half = 1.96 * banded["employment_prse"] / 100 * banded["employment_level"]
@@ -351,7 +351,7 @@ def update_dashboard(occ_code):
             x=list(banded["year"]) + list(banded["year"])[::-1],
             y=list(banded["employment_level"] + half) + list((banded["employment_level"] - half))[::-1],
             fill="toself", fillcolor="rgba(74, 144, 217, 0.18)", line=dict(width=0), hoverinfo="skip",
-            name="Approx. 95% sampling range", showlegend=True,
+            name="Approx. 95% range (BLS relative standard error)", showlegend=True,
         ))
     emp_fig.add_trace(go.Scatter(x=sub["year"], y=sub["employment_level"], mode="lines+markers", name="Employment"))
     emp_fig.update_layout(

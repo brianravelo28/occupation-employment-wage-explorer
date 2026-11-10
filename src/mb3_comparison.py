@@ -94,6 +94,18 @@ def agreement(a: pd.DataFrame, b: pd.DataFrame) -> list:
         w = d.dropna(subset=["real_wage_growth_yoy_pct_a", "real_wage_growth_yoy_pct_b"])
         out.append(("real wage growth, per occupation: median absolute difference (points)", y,
                     (w["real_wage_growth_yoy_pct_a"] - w["real_wage_growth_yoy_pct_b"]).abs().median()))
+
+    # the 2015-2020 levels themselves: how far the MB3 values are from the figures BLS first published
+    early = j[j.index.get_level_values("year") <= 2020]
+    emp = early.dropna(subset=["employment_level_a", "employment_level_b"])
+    emp_diff = (emp["employment_level_b"] / emp["employment_level_a"] - 1).abs() * 100
+    wage = early.dropna(subset=["wage_annual_mean_a", "wage_annual_mean_b"])
+    wage_diff = (wage["wage_annual_mean_b"] / wage["wage_annual_mean_a"] - 1).abs() * 100
+    out += [("2015-2020 employment level: occupation-year rows compared", np.nan, float(len(emp))),
+            ("2015-2020 employment level: median absolute difference (%)", np.nan, emp_diff.median()),
+            ("2015-2020 employment level: share of rows differing by more than 5% (%)", np.nan, (emp_diff > 5).mean() * 100),
+            ("2015-2020 mean wage: median absolute difference (%)", np.nan, wage_diff.median()),
+            ("2015-2020 mean wage: share of rows differing by more than 2% (%)", np.nan, (wage_diff > 2).mean() * 100)]
     return out
 
 

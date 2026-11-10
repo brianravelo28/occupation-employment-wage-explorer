@@ -177,6 +177,14 @@ def compute() -> list:
     add("method change: one occupation's 2021 employment change",
         f"{cmp(ec, 2021, 'agreement'):.1f} points between the two series (correlation {cmp(cc, 2021, 'agreement'):.2f})", "docs/METHODOLOGY.md")
     add("method change: one occupation's 2021 real wage growth", f"by {cmp(rw, 2021, 'agreement'):.1f} points", "docs/METHODOLOGY.md")
+    lv = "2015-2020 employment level: "
+    add("method change: rows compared", f"Across the {cmp(lv + 'occupation-year rows compared', None, 'agreement'):,.0f} occupation-year rows", "docs/METHODOLOGY.md")
+    add("method change: employment level differences",
+        f"employment differs by {cmp(lv + 'median absolute difference (%)', None, 'agreement'):.1f}% and its mean wage by {cmp('2015-2020 mean wage: median absolute difference (%)', None, 'agreement'):.1f}%",
+        "docs/METHODOLOGY.md")
+    add("method change: share of rows differing",
+        f"{cmp(lv + 'share of rows differing by more than 5% (%)', None, 'agreement'):.0f}% of rows differ by more than 5% in employment and {cmp('2015-2020 mean wage: share of rows differing by more than 2% (%)', None, 'agreement'):.0f}% by more than 2% in mean wage",
+        "docs/METHODOLOGY.md")
     for title in ("Waiters and Waitresses", "Registered Nurses"):
         m = f"2020 response, {title} (points)"
         add(f"method change: 2020 response, {title}",

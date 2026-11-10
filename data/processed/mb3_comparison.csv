@@ -59,3 +59,8 @@ real wage change 2015-2025: occupations compared,,713.0,713.0,
 "employment change, per occupation: correlation between the two series",2025.0,,,1.0
 "employment change, per occupation: median absolute difference (points)",2025.0,,,0.0
 "real wage growth, per occupation: median absolute difference (points)",2025.0,,,0.0
+2015-2020 employment level: occupation-year rows compared,,,,4831.0
+2015-2020 employment level: median absolute difference (%),,,,3.5680792131033146
+2015-2020 employment level: share of rows differing by more than 5% (%),,,,37.4456634237218
+2015-2020 mean wage: median absolute difference (%),,,,1.4585109303731802
+2015-2020 mean wage: share of rows differing by more than 2% (%),,,,37.62993762993763

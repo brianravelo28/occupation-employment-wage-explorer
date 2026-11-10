@@ -24,7 +24,7 @@ It can answer these questions:
 
 ## How to use it?
 
-Choose an occupation on the first or third tab, or a sector on the second; the cards and charts update. Drag to zoom into part of a chart and double-click to reset it.
+Choose an occupation on the first or third tab, or a sector on the second; the cards, charts and tables update. Under each chart and table, "About this chart" or "About this table" opens its notes: what it shows, its caveats and how to zoom.
 
 ## Data
 

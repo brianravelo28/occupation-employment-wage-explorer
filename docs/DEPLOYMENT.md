@@ -15,6 +15,8 @@ The repo is Render-ready as-is:
 
 **Gotcha.** For a service created manually, the Start Command lives in Render's dashboard settings: editing `Procfile` or `render.yaml` later does *not* change an existing service. Update it under **Settings > Start Command**.
 
+**Health and debug endpoints.** `/healthz` answers 200 with `{"status": "ok"}` once the data has loaded; `render.yaml` sets it as the health check path (for a service created manually, set it under **Settings > Health Check Path**). `/debugz` returns the process's uptime, Python and package versions, the rows loaded and its resident memory in MB (read from `/proc` on Linux, so it is blank on Windows). It carries no settings or paths.
+
 **No secrets needed.** The dashboard reads only the processed CSVs committed under `data/processed/`. The raw BLS archives are git-ignored (see [.gitignore](../.gitignore)): Render can't reliably regenerate the processed tables at build time, since BLS's API has had multi-day outages.
 
 `app/app.py`'s `if __name__ == "__main__"` block is for local development (`python app/app.py`; reads `PORT` and `DASH_DEBUG`, defaults to port 8051 with debug on). In production, gunicorn serves `app.app:server`.

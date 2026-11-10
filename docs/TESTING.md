@@ -16,6 +16,7 @@ The suite checks that the pipeline is correct and repeatable: that the data is c
 | Robustness checks | The method comparison (the committed table is what the two panels produce, and the claims about it hold), the real-wage-decline shares under other CPI months, the 2020 response calculation applied to years with no shock, and BLS's relative standard errors (present, in range, smaller for larger occupations) | `tests/test_robustness.py` |
 | Data fetching | Quirks of the BLS files and API, such as a request that reports success but returns no data, or column names that change between release years; which file each year is read from (the recalculated 2015–2020 estimates or the standard archive) | `tests/test_fetchers.py` |
 | Dashboard | Every callback (the function behind each chart and filter) returns the expected output | `tests/test_app.py` |
+| Start command | The command Render runs is the same in `render.yaml`, `Procfile` and the deployment doc; on Linux, gunicorn starts with it and answers the burst of requests Dash sends on page load | `tests/test_start_command.py` |
 
 **What they don't cover.** Page layout and the live Render deployment. The raw-to-processed step runs offline against the committed CSVs, so re-downloading from BLS is not exercised by CI.
 
